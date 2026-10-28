@@ -6,8 +6,10 @@ import 'package:kharcha_ai/models/expense_summary.dart';
 import 'package:kharcha_ai/models/user_model.dart';
 import 'package:kharcha_ai/screens/login_screen.dart';
 import 'package:kharcha_ai/screens/profile_screen.dart';
+import 'package:kharcha_ai/screens/scan_receipt_screen.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
 import 'package:kharcha_ai/services/expense_service.dart';
+import 'package:kharcha_ai/services/receipt_service.dart';
 import 'package:kharcha_ai/widgets/add_expense_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -160,6 +162,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _openScanReceiptScreen() async {
+    final createdExpense = await Navigator.push<ExpenseModel>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanReceiptScreen(
+          receiptService: ReceiptScannerService(apiClient: widget.authService.apiClient),
+          expenseService: _expenseService,
+        ),
+      ),
+    );
+
+    if (createdExpense != null && mounted) {
+      _loadDashboardData();
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -422,6 +440,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.document_scanner_outlined, color: AppColors.primary),
+            tooltip: 'Scan Receipt with AI',
+            onPressed: _openScanReceiptScreen,
+          ),
+          IconButton(
             icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),
             tooltip: 'View Profile',
             onPressed: () {
@@ -443,12 +466,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddExpenseSheet(),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Kharcha', style: TextStyle(fontWeight: FontWeight.w600)),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'scanReceiptFAB',
+            onPressed: _openScanReceiptScreen,
+            backgroundColor: Colors.white,
+            foregroundColor: AppColors.primary,
+            tooltip: 'Scan Receipt with AI',
+            child: const Icon(Icons.document_scanner_outlined),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'addExpenseFAB',
+            onPressed: () => _showAddExpenseSheet(),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Kharcha', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(

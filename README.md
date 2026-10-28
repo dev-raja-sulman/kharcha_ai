@@ -1,6 +1,9 @@
-# KharchaAI — Phase 1 & Phase 2: Authentication & Expense Management
+# KharchaAI — Phase 1, Phase 2 & Phase 3: AI Expense Management
 
-KharchaAI is an AI-powered personal expense tracker and financial management app. This repository contains the complete **Phase 1** (Authentication & Flutter-FastAPI integration) and **Phase 2** (Expense Management, PostgreSQL architecture with Alembic migrations, Multi-User Isolation Security, and Flutter Dashboard integration).
+KharchaAI is an AI-powered personal expense tracker and financial management app. This repository contains:
+- **Phase 1**: Authentication, JWT Security, & Flutter-FastAPI integration
+- **Phase 2**: Expense Management CRUD, Alembic migrations, Multi-User Isolation, and Dashboard Summaries
+- **Phase 3**: AI Receipt Scanning (Google Gemini Vision & Local OCR), Smart Expense Categorization, and Review & Confirm Workflow
 
 ---
 
@@ -14,10 +17,11 @@ Karcha AI App/
 ├── app/                                 # FastAPI Backend (Modular Architecture)
 │   ├── api/
 │   │   ├── deps.py                      # JWT Bearer token dependency (get_current_user)
-│   │   ├── api.py                       # v1 router registry (Auth + Expenses)
+│   │   ├── api.py                       # v1 router registry (Auth + Expenses + Receipts)
 │   │   └── routes/
 │   │       ├── auth.py                  # Endpoints: /register, /login, /me
-│   │       └── expenses.py              # Endpoints: /expenses, /expenses/summary, /expenses/{id}
+│   │       ├── expenses.py              # Endpoints: /expenses, /expenses/summary, /expenses/{id}
+│   │       └── receipts.py              # Endpoint: POST /receipts/scan
 │   ├── core/
 │   │   ├── config.py                    # Settings & environment variables (pydantic-settings)
 │   │   └── security.py                  # Direct bcrypt hashing & JWT encoding/decoding
@@ -29,15 +33,26 @@ Karcha AI App/
 │   │   └── expense.py                   # Expense model (Numeric(12,2), category index, check constraints)
 │   ├── schemas/
 │   │   ├── auth.py                      # Auth request/response schemas
-│   │   └── expense.py                   # Expense schemas, Enum categories, summaries
+│   │   ├── expense.py                   # Expense schemas, Enum categories, summaries
+│   │   └── receipt.py                   # Receipt scan request/response schemas & line items
 │   ├── services/
 │   │   ├── auth_service.py              # Business logic: registration, authentication, profile lookups
-│   │   └── expense_service.py           # Multi-tenant expense CRUD, aggregations & data isolation
-│   ├── tests/                           # Pytest automated test suite (17 passed)
+│   │   ├── expense_service.py           # Multi-tenant expense CRUD, aggregations & data isolation
+│   │   ├── categorizer.py               # Deterministic smart categorizer mapping terms to ExpenseCategory
+│   │   ├── receipt_service.py           # Upload validation, size/mime limits, provider orchestration
+│   │   └── receipt_providers/           # Provider abstraction layer
+│   │       ├── base.py                  # BaseReceiptProvider abstract interface
+│   │       ├── gemini_provider.py       # Google Gemini Vision integration via httpx
+│   │       ├── rule_based_provider.py   # Local Pillow raster validation & deterministic heuristics
+│   │       └── mock_provider.py         # Mock provider for automated test suite
+│   ├── static/
+│   │   └── web_app.html                 # Interactive visual web testing console with receipt scanning
+│   ├── tests/                           # Pytest automated test suite (28 passed)
 │   │   ├── conftest.py                  # In-memory test SQLite session & client fixture
 │   │   ├── test_health.py               # Health endpoint test
 │   │   ├── test_auth.py                 # 9 security & auth tests
-│   │   └── test_expenses.py             # 7 expense CRUD, validation & multi-user isolation tests
+│   │   ├── test_expenses.py             # 7 expense CRUD, validation & multi-user isolation tests
+│   │   └── test_receipts.py             # 11 receipt scanning, validation & confirmation tests
 │   └── main.py                          # FastAPI application factory, CORS & /health
 ├── lib/                                 # KharchaAI Flutter Frontend
 │   ├── core/
@@ -55,10 +70,12 @@ Karcha AI App/
 │   │   ├── user_model.dart              # User profile data model & JSON serialization
 │   │   ├── auth_response.dart           # Token response wrapper
 │   │   ├── expense_model.dart           # Expense model with PKR currency and date formatting
-│   │   └── expense_summary.dart         # Category and payment method aggregations
+│   │   ├── expense_summary.dart         # Category and payment method aggregations
+│   │   └── receipt_scan_model.dart      # Receipt scan extraction data model & line items
 │   ├── services/
 │   │   ├── auth_service.dart            # Flutter authentication API consumer
-│   │   └── expense_service.dart         # Flutter expense CRUD API consumer
+│   │   ├── expense_service.dart         # Flutter expense CRUD API consumer
+│   │   └── receipt_service.dart         # Flutter receipt scanning API consumer (Dio multipart)
 │   ├── widgets/
 │   │   ├── custom_button.dart           # Loading state & styled action button
 │   │   ├── custom_text_field.dart       # Form field with validation & password visibility toggle
@@ -67,15 +84,17 @@ Karcha AI App/
 │   │   ├── splash_screen.dart           # Auto-checks token & navigates to Dashboard or Login
 │   │   ├── login_screen.dart            # Login form with validation & error banner
 │   │   ├── register_screen.dart         # Sign-up form with password confirmation
-│   │   ├── dashboard_screen.dart        # Real-time financial dashboard with live expenses & FAB
+│   │   ├── dashboard_screen.dart        # Real-time financial dashboard with live expenses & Scan button
+│   │   ├── scan_receipt_screen.dart     # AI Receipt scanning, progress indicator, review & confirmation
 │   │   └── profile_screen.dart          # User account details & logout dialog
 │   └── main.dart                        # App bootstrap & theme setup
 ├── scripts/
-│   └── verify_api_integration.py        # Automated end-to-end 17-point live integration check
+│   └── verify_api_integration.py        # Automated end-to-end 24-point live integration check
 ├── test/                                # Flutter Unit Tests
 │   ├── models_test.dart
 │   ├── api_config_test.dart
-│   └── expense_models_test.dart
+│   ├── expense_models_test.dart
+│   └── receipt_models_test.dart
 ├── .env.example                         # Template environment configuration
 ├── .env                                 # Active local development configuration
 ├── pubspec.yaml                         # Flutter dependencies manifest
@@ -137,25 +156,32 @@ flutter run --dart-define=API_URL=http://192.168.1.13:8000
 
 ---
 
+## 📸 Phase 3: AI Receipt Scanning & OCR Architecture
+
+KharchaAI Phase 3 implements structured financial receipt scanning with a provider abstraction layer:
+- **Google Gemini Vision (`gemini-1.5-flash`):** Multimodal cloud AI vision via lightweight `httpx` asynchronous calls. To enable, add your Gemini API key in `.env`:
+  ```bash
+  RECEIPT_AI_PROVIDER="gemini"
+  GEMINI_API_KEY="your-google-ai-studio-api-key"
+  ```
+- **Local Rule-Based OCR Engine (`rule_based`):** Raster image binary and dimensional verification using Pillow with deterministic keyword category heuristics. Ideal for offline or unconfigured environments without paid cloud dependencies.
+- **Review & Confirm Safety:** Receipt scanning (`POST /api/v1/receipts/scan`) **never** creates an expense automatically. It returns a structured preview with merchant name, amount, date, suggested category, confidence, and warnings. The user explicitly reviews and edits the fields, and confirms to call `POST /api/v1/expenses`.
+
+---
+
 ## 🧪 Automated Test Results
 
-### 1. Backend Pytest Suite
+### 1. Backend Pytest Suite (28 Passed)
 Ran: `python -m pytest app/tests -v`
 ```
-app/tests/test_auth.py::test_register_success PASSED                     [ 10%]
-app/tests/test_auth.py::test_register_duplicate_email PASSED             [ 20%]
-app/tests/test_auth.py::test_register_invalid_input PASSED               [ 30%]
-app/tests/test_auth.py::test_login_success PASSED                        [ 40%]
-app/tests/test_auth.py::test_login_invalid_password PASSED               [ 50%]
-app/tests/test_auth.py::test_login_unregistered_email PASSED             [ 60%]
-app/tests/test_auth.py::test_get_current_user_profile PASSED             [ 70%]
-app/tests/test_auth.py::test_get_current_user_unauthorized PASSED        [ 80%]
-app/tests/test_auth.py::test_password_never_stored_in_plaintext PASSED   [ 90%]
-app/tests/test_health.py::test_health_check PASSED                       [100%]
-======================== 10 passed in 4.48s ========================
+app/tests/test_auth.py (9 tests) ......................... PASSED
+app/tests/test_expenses.py (7 tests) ..................... PASSED
+app/tests/test_health.py (1 test) ........................ PASSED
+app/tests/test_receipts.py (11 tests) .................... PASSED
+======================= 28 passed in 15.73s =======================
 ```
 
-### 2. Live End-to-End API Integration
+### 2. Live End-to-End API Integration (24 Passed)
 Ran: `python scripts/verify_api_integration.py`
 ```
 [PASS] Step 1: Server Health Check (GET /health) -> 200 OK
@@ -166,8 +192,22 @@ Ran: `python scripts/verify_api_integration.py`
 [PASS] Step 6: Invalid Credentials Rejection -> 401 Unauthorized
 [PASS] Step 7: Authenticated Profile Retrieval (GET /api/v1/auth/me) -> 200 OK
 [PASS] Step 8: Unauthorized Access Protection -> 401 Unauthorized
-[PASS] Step 9: Database Security Audit -> Bcrypt Hash $2b$12$... Verified (Zero plaintext)
+[PASS] Step 9: Database Security Audit -> Bcrypt Hash Verified (Zero plaintext)
 [PASS] Step 10: Network Failure Resilience Check -> Connection refusal mapped to friendly message
+[PASS] Step 11: Expense Creation (POST /api/v1/expenses) -> 201 Created
+[PASS] Step 12: Expense Amount & Title Validation -> 422 Rejected
+[PASS] Step 13: List & Filter Expenses (GET /api/v1/expenses) -> Filtered by category
+[PASS] Step 14: Expense Summary Aggregations (GET /api/v1/expenses/summary) -> Total sum & % breakdown
+[PASS] Step 15: Update Expense (PATCH /api/v1/expenses/{id}) -> Updated amount
+[PASS] Step 16: Multi-User Data Isolation Enforcement -> User 2 receives 404 on User 1's expense
+[PASS] Step 17: Delete Expense (DELETE /api/v1/expenses/{id}) -> Status 200 OK
+[PASS] Step 18: Unauthenticated Receipt Scan Rejection (401) -> Protected endpoint verified
+[PASS] Step 19: Invalid File Type Rejection (400) -> PDF rejected
+[PASS] Step 20: Unconfigured AI Provider Error Reporting (503) -> Friendly actionable message
+[PASS] Step 21: Authenticated Receipt Scan (POST /api/v1/receipts/scan?provider=rule_based) -> 200 OK
+[PASS] Step 22: No Auto-Creation Verification -> Expense count unchanged
+[PASS] Step 23: Confirm & Save Receipt Expense (POST /api/v1/expenses) -> 201 Created
+[PASS] Step 24: Verified Exactly One Expense Saved -> Count incremented by exactly 1
 ```
 
 ---

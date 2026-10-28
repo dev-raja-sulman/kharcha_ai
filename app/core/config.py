@@ -32,6 +32,19 @@ class Settings(BaseSettings):
         "*"
     ]
 
+    # AI & Receipt Scanning Configuration
+    # Supported providers: "gemini", "rule_based", "mock"
+    RECEIPT_AI_PROVIDER: str = os.getenv("RECEIPT_AI_PROVIDER", "gemini")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    RECEIPT_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # 5 MB maximum image size
+    RECEIPT_ALLOWED_MIME_TYPES: List[str] = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp"
+    ]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

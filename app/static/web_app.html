@@ -458,6 +458,19 @@
       padding: 24px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.2);
     }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-outline {
+      background: #FFFFFF !important;
+      color: var(--text-primary) !important;
+      border: 1px solid var(--border) !important;
+    }
+    .btn-outline:hover {
+      background: var(--background) !important;
+      border-color: var(--text-muted) !important;
+    }
   </style>
 </head>
 <body>
@@ -556,7 +569,10 @@
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <span style="font-weight: 700; font-size: 1rem;">Recent Transactions</span>
-        <button class="btn btn-sm" onclick="openExpenseModal()">+ Add Kharcha</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" style="background: var(--primary-surface); color: var(--primary); border: 1px solid var(--primary-light);" onclick="openReceiptModal()">📷 Scan Receipt</button>
+          <button class="btn btn-sm" onclick="openExpenseModal()">+ Add Kharcha</button>
+        </div>
       </div>
 
       <!-- Category Filter Chips -->
@@ -636,6 +652,112 @@
         </div>
         <button type="submit" id="modal-submit-btn" class="btn" style="margin-top: 10px;">Save Expense</button>
       </form>
+    </div>
+  </div>
+
+  <!-- AI Receipt Scanner Modal -->
+  <div id="receipt-modal" class="modal-overlay">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>📷</span> AI Receipt Scanner
+        </h3>
+        <button onclick="closeReceiptModal()" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <div id="receipt-error" class="banner banner-error" style="display: none;"></div>
+
+      <!-- Step 1: Upload or Sample -->
+      <div id="receipt-step-upload">
+        <div class="form-group">
+          <label>Extraction Engine</label>
+          <select id="receipt-provider">
+            <option value="gemini" selected>Google Gemini Vision (Cloud AI)</option>
+            <option value="rule_based">Deterministic Rule-Based Engine (Local)</option>
+          </select>
+        </div>
+
+        <div style="border: 2px dashed var(--border); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; background: var(--background);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🧾</div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Select Receipt Image</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px;">JPEG, PNG, or WebP up to 5MB</div>
+          <input type="file" id="receipt-file-input" accept="image/jpeg,image/png,image/webp" style="margin-bottom: 14px; max-width: 100%;">
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-sm" onclick="scanUploadedReceipt()">Upload & Scan</button>
+            <button class="btn btn-sm btn-outline" onclick="scanSampleReceipt()">⚡ Try Sample (KFC PKR 1,850)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Processing Spinner -->
+      <div id="receipt-step-loading" style="display: none; text-align: center; padding: 32px 16px;">
+        <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+        <div style="margin-top: 16px; font-weight: 700; color: var(--text-primary);">Scanning Receipt with AI...</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">Extracting merchant, total, date, and suggested category.</div>
+      </div>
+
+      <!-- Step 3: Extracted Preview & Confirmation Form -->
+      <div id="receipt-step-review" style="display: none;">
+        <div id="receipt-badge-card" style="padding: 12px; border-radius: 10px; background: var(--primary-surface); border: 1px solid var(--border); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span id="receipt-confidence" style="font-weight: 700; font-size: 0.85rem; color: var(--primary);">Confidence: 94%</span>
+            <span id="receipt-provider-badge" class="badge" style="font-size: 0.7rem;">gemini</span>
+          </div>
+          <div id="receipt-warnings" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;"></div>
+        </div>
+
+        <form id="receipt-confirm-form">
+          <div class="form-group">
+            <label>Merchant / Shop Name</label>
+            <input type="text" id="scan-merchant" required>
+          </div>
+          <div class="form-group">
+            <label>Total Amount (PKR)</label>
+            <input type="number" step="0.01" min="0.01" id="scan-amount" required>
+          </div>
+          <div class="row">
+            <div class="form-group">
+              <label>Category (AI Suggested)</label>
+              <select id="scan-category">
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Bills">Bills</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Education">Education</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Rent">Rent</option>
+                <option value="Travel">Travel</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="scan-payment">
+                <option value="Card">Card</option>
+                <option value="Cash">Cash</option>
+                <option value="EasyPaisa">EasyPaisa</option>
+                <option value="JazzCash">JazzCash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="scan-date" required>
+          </div>
+          <div class="form-group">
+            <label>Description / AI Explanation</label>
+            <input type="text" id="scan-desc">
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 14px;">
+            <button type="submit" class="btn" style="flex: 1;">✓ Confirm & Save Kharcha</button>
+            <button type="button" class="btn btn-outline" onclick="resetReceiptModal()">Retry</button>
+          </div>
+        </form>
+      </div>
+
     </div>
   </div>
 
@@ -890,6 +1012,146 @@
         alert(e.message);
       }
     }
+
+    // ----------------------------------------------------
+    // AI Receipt Scanner Controls
+    // ----------------------------------------------------
+    function openReceiptModal() {
+      resetReceiptModal();
+      document.getElementById('receipt-modal').classList.add('active');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receipt-modal').classList.remove('active');
+    }
+
+    function resetReceiptModal() {
+      document.getElementById('receipt-error').style.display = 'none';
+      document.getElementById('receipt-step-upload').style.display = 'block';
+      document.getElementById('receipt-step-loading').style.display = 'none';
+      document.getElementById('receipt-step-review').style.display = 'none';
+      document.getElementById('receipt-file-input').value = '';
+    }
+
+    async function scanUploadedReceipt() {
+      const fileInput = document.getElementById('receipt-file-input');
+      const errBox = document.getElementById('receipt-error');
+      errBox.style.display = 'none';
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        errBox.textContent = 'Please choose an image file (JPEG, PNG, or WebP).';
+        errBox.style.display = 'flex';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      await performReceiptScan(file);
+    }
+
+    async function scanSampleReceipt() {
+      // Create a small valid JPEG blob in memory representing a sample receipt
+      const sampleJpegHex = "ffd8ffe000104a46494600010101006000600000ffdb004300080606070605080707070909080a0c140d0c0b0b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c1c2837292c30313434341f27393d38323c2e333432ffc0000b080064006401011100ffc4001f0000010501010101010100000000000000000102030405060708090a0bffda0008010100003f003fffd9";
+      const bytes = new Uint8Array(sampleJpegHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const blob = new Blob([bytes], { type: 'image/jpeg' });
+      const sampleFile = new File([blob], 'kfc_family_meal_1850.jpg', { type: 'image/jpeg' });
+
+      // Automatically use rule_based for sample so it works reliably even if GEMINI_API_KEY is not configured
+      document.getElementById('receipt-provider').value = 'rule_based';
+      await performReceiptScan(sampleFile);
+    }
+
+    async function performReceiptScan(file) {
+      const errBox = document.getElementById('receipt-error');
+      errBox.style.display = 'none';
+
+      document.getElementById('receipt-step-upload').style.display = 'none';
+      document.getElementById('receipt-step-loading').style.display = 'block';
+
+      const provider = document.getElementById('receipt-provider').value;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch(`/api/v1/receipts/scan?provider=${provider}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Failed to scan receipt image.');
+        }
+
+        renderReceiptReview(data);
+      } catch (err) {
+        document.getElementById('receipt-step-loading').style.display = 'none';
+        document.getElementById('receipt-step-upload').style.display = 'block';
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    }
+
+    function renderReceiptReview(data) {
+      document.getElementById('receipt-step-loading').style.display = 'none';
+      document.getElementById('receipt-step-review').style.display = 'block';
+
+      // Populate review form with extracted values
+      document.getElementById('scan-merchant').value = data.merchant_name || '';
+      document.getElementById('scan-amount').value = data.amount || '';
+      document.getElementById('scan-date').value = data.transaction_date || new Date().toISOString().split('T')[0];
+
+      if (data.suggested_category) {
+        document.getElementById('scan-category').value = data.suggested_category;
+      }
+
+      document.getElementById('scan-desc').value = data.category_explanation || 'AI Scanned Receipt';
+
+      const confPercent = Math.round((data.confidence || 0) * 100);
+      document.getElementById('receipt-confidence').textContent = `Confidence: ${confPercent}%`;
+      document.getElementById('receipt-provider-badge').textContent = data.provider_used || 'ai';
+
+      const warningsDiv = document.getElementById('receipt-warnings');
+      warningsDiv.innerHTML = '';
+      if (data.warnings && data.warnings.length > 0) {
+        warningsDiv.innerHTML = data.warnings.map(w => `• ${escapeHtml(w)}`).join('<br>');
+      }
+    }
+
+    document.getElementById('receipt-confirm-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('receipt-error');
+      errBox.style.display = 'none';
+
+      const title = document.getElementById('scan-merchant').value;
+      const amount = document.getElementById('scan-amount').value;
+      const category = document.getElementById('scan-category').value;
+      const payment_method = document.getElementById('scan-payment').value;
+      const expense_date = document.getElementById('scan-date').value;
+      const description = document.getElementById('scan-desc').value;
+
+      try {
+        const res = await fetch('/api/v1/expenses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ title, amount, category, payment_method, expense_date, description })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save confirmed expense.');
+
+        closeReceiptModal();
+        loadDashboard();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    });
 
     function logout() {
       localStorage.removeItem('kharcha_token');

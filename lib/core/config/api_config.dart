@@ -63,6 +63,7 @@ class ApiConfig {
   static String get expensesUrl => '$baseUrl/api/v1/expenses';
   static String get expenseSummaryUrl => '$baseUrl/api/v1/expenses/summary';
   static String get expenseCategoriesUrl => '$baseUrl/api/v1/expenses/categories';
+  static String get receiptScanUrl => '$baseUrl/api/v1/receipts/scan';
 
   // Network Timeout Configurations
   static const Duration connectTimeout = Duration(seconds: 10);

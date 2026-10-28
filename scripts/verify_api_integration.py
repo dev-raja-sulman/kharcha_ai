@@ -230,8 +230,134 @@ def main():
     delete_ok = (res_del.status_code == 200 and res_del_verify.status_code == 404)
     log_step(17, "Delete Expense (DELETE /api/v1/expenses/{id})", delete_ok, "Expense deleted; subsequent GET returns 404 Not Found")
 
+    # ---------------------------------------------------------
+    # PHASE 3: AI RECEIPT SCANNING & SMART EXPENSE INTEGRATION
+    # ---------------------------------------------------------
+    print("\n--- Phase 3: AI Receipt Scanning & Smart Expense Integration ---")
+    import io
+    from PIL import Image
+
+    # Create a real JPEG test receipt in memory
+    img = Image.new("RGB", (300, 500), color=(250, 250, 250))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    receipt_jpeg_bytes = buf.getvalue()
+
+    # 18. Unauthenticated Receipt Scan Rejection
+    res_unauth_scan = requests.post(
+        f"{BASE_URL}/api/v1/receipts/scan",
+        files={"file": ("receipt.jpg", receipt_jpeg_bytes, "image/jpeg")}
+    )
+    log_step(
+        18,
+        "Unauthenticated Receipt Scan Rejection (401)",
+        res_unauth_scan.status_code == 401,
+        "Protected endpoint rejected unauthenticated scan request with 401."
+    )
+
+    # 19. Invalid File Type Validation
+    res_bad_file = requests.post(
+        f"{BASE_URL}/api/v1/receipts/scan",
+        files={"file": ("document.pdf", b"%PDF-1.4 test", "application/pdf")},
+        headers=headers1
+    )
+    log_step(
+        19,
+        "Invalid File Type Rejection (400)",
+        res_bad_file.status_code == 400,
+        f"PDF rejected with detail: {res_bad_file.json().get('detail')}"
+    )
+
+    # 20. Unconfigured AI Provider Handling (503 Service Unavailable)
+    # When GEMINI_API_KEY is unset and default provider is Gemini, endpoint returns 503
+    res_unconf_scan = requests.post(
+        f"{BASE_URL}/api/v1/receipts/scan",
+        files={"file": ("receipt.jpg", receipt_jpeg_bytes, "image/jpeg")},
+        headers=headers1
+    )
+    unconf_ok = (
+        res_unconf_scan.status_code == 503 and
+        "gemini api key is not configured" in res_unconf_scan.json().get("detail", "").lower()
+    )
+    log_step(
+        20,
+        "Unconfigured AI Provider Error Reporting (503)",
+        unconf_ok,
+        f"Server correctly returned 503 when AI key is missing: '{res_unconf_scan.json().get('detail')}'"
+    )
+
+    # 21. Authenticated Receipt Scan with Deterministic Rule-Based Provider (?provider=rule_based)
+    res_scan = requests.post(
+        f"{BASE_URL}/api/v1/receipts/scan?provider=rule_based",
+        files={"file": ("kfc_family_meal_1850.jpg", receipt_jpeg_bytes, "image/jpeg")},
+        headers=headers1
+    )
+    scan_ok = (
+        res_scan.status_code == 200 and
+        res_scan.json().get("suggested_category") == "Food" and
+        res_scan.json().get("provider_used") == "rule_based" and
+        "confidence" in res_scan.json()
+    )
+    scan_data = res_scan.json() if res_scan.status_code == 200 else {}
+    log_step(
+        21,
+        "Authenticated Receipt Scan (POST /api/v1/receipts/scan?provider=rule_based)",
+        scan_ok,
+        f"Status: {res_scan.status_code}, Merchant: '{scan_data.get('merchant_name')}', "
+        f"Suggested Category: '{scan_data.get('suggested_category')}', Amount: '{scan_data.get('amount')}', "
+        f"Provider: '{scan_data.get('provider_used')}', Confidence: {scan_data.get('confidence')}"
+    )
+
+    # 22. Verify Scan Does Not Auto-Create Expense
+    # User 1 previously had 2 expenses remaining (exp2 and exp3 after deleting exp1)
+    res_exp_check = requests.get(f"{BASE_URL}/api/v1/expenses", headers=headers1)
+    auto_create_prevented = (res_exp_check.status_code == 200 and res_exp_check.json()["total"] == 2)
+    log_step(
+        22,
+        "No Auto-Creation Verification",
+        auto_create_prevented,
+        f"Expense count remains {res_exp_check.json().get('total')} (scan only returned preview; did not persist)."
+    )
+
+    # 23. User Confirmation & Expense Creation
+    # Simulate user verifying/adjusting the extracted fields and clicking Confirm & Save
+    confirmed_expense_payload = {
+        "title": scan_data.get("merchant_name") or "KFC Family Meal",
+        "amount": scan_data.get("amount") or "1850.00",
+        "category": scan_data.get("suggested_category") or "Food",
+        "description": f"AI Receipt Scan verified: {scan_data.get('category_explanation', '')}",
+        "expense_date": scan_data.get("transaction_date") or str(date.today()),
+        "payment_method": "Card"
+    }
+    res_save_receipt = requests.post(
+        f"{BASE_URL}/api/v1/expenses",
+        json=confirmed_expense_payload,
+        headers=headers1
+    )
+    receipt_saved = (
+        res_save_receipt.status_code == 201 and
+        res_save_receipt.json()["title"] == confirmed_expense_payload["title"] and
+        Decimal(res_save_receipt.json()["amount"]) == Decimal(confirmed_expense_payload["amount"])
+    )
+    log_step(
+        23,
+        "Confirm & Save Receipt Expense (POST /api/v1/expenses)",
+        receipt_saved,
+        f"Status: {res_save_receipt.status_code}, Created Expense ID: {res_save_receipt.json().get('id')}"
+    )
+
+    # 24. Verify Total Count Incremented by Exactly 1
+    res_final_check = requests.get(f"{BASE_URL}/api/v1/expenses", headers=headers1)
+    count_incremented = (res_final_check.status_code == 200 and res_final_check.json()["total"] == 3)
+    log_step(
+        24,
+        "Verified Exactly One Expense Saved",
+        count_incremented,
+        f"Total User 1 Expenses is now {res_final_check.json().get('total')} (incremented exactly by 1)."
+    )
+
     print("\n" + "=" * 75)
-    print(" ALL 17 PHASE 1 & PHASE 2 INTEGRATION VERIFICATION CHECKS PASSED! ")
+    print(" ALL 24 PHASE 1, PHASE 2 & PHASE 3 INTEGRATION CHECKS PASSED! ")
     print("=" * 75)
 
 
