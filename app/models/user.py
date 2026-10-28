@@ -36,5 +36,13 @@ class User(Base):
         passive_deletes=True
     )
 
+    # Relationship to user's budgets (cascades on delete)
+    budgets = relationship(
+        "Budget",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email='{self.email}' full_name='{self.full_name}'>"

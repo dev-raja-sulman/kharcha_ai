@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from datetime import date, datetime
 from decimal import Decimal
 import requests
 from sqlalchemy import create_engine
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from app.core.config import settings
 from app.core.security import verify_password
-from app.models.user import User
+from app.models import Budget, Expense, User
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -356,8 +357,154 @@ def main():
         f"Total User 1 Expenses is now {res_final_check.json().get('total')} (incremented exactly by 1)."
     )
 
+    # ---------------------------------------------------------
+    # PHASE 4: BUDGET MANAGEMENT, ANALYTICS & AI INSIGHTS
+    # ---------------------------------------------------------
+    print("\n--- Phase 4: Budget Management, Analytics & AI Insights ---")
+    today = date.today()
+    curr_month = today.month
+    curr_year = today.year
+
+    # 25. Unauthenticated Budget Request Rejection
+    res_unauth_b = requests.get(f"{BASE_URL}/api/v1/budgets")
+    log_step(
+        25,
+        "Unauthenticated Budget Access Rejection (401)",
+        res_unauth_b.status_code == 401,
+        "Protected endpoint rejected unauthenticated request."
+    )
+
+    # 26. Create Overall Monthly Budget (PKR 30,000)
+    res_b_overall = requests.post(f"{BASE_URL}/api/v1/budgets", json={
+        "name": f"Overall Monthly {curr_year}-{curr_month:02d}",
+        "amount": "30000.00",
+        "category": None,
+        "month": curr_month,
+        "year": curr_year
+    }, headers=headers1)
+    overall_ok = (
+        res_b_overall.status_code == 201 and
+        res_b_overall.json().get("category") is None and
+        Decimal(res_b_overall.json().get("amount")) == Decimal("30000.00")
+    )
+    b_overall_id = res_b_overall.json().get("id") if overall_ok else None
+    log_step(
+        26,
+        "Create Overall Monthly Budget (POST /api/v1/budgets)",
+        overall_ok,
+        f"Status: {res_b_overall.status_code}, ID: {b_overall_id}, Amount: PKR 30,000.00, Spent: {res_b_overall.json().get('spent')}"
+    )
+
+    # 27. Create Category Budget for Food (PKR 2,000)
+    # User 1 previously created Food expense of 1,850 (92.5%), which triggers the 80% threshold warning alert!
+    res_b_food = requests.post(f"{BASE_URL}/api/v1/budgets", json={
+        "name": "Food & Dining Budget",
+        "amount": "2000.00",
+        "category": "Food",
+        "month": curr_month,
+        "year": curr_year
+    }, headers=headers1)
+    food_b_ok = (
+        res_b_food.status_code == 201 and
+        res_b_food.json().get("category") == "Food" and
+        res_b_food.json().get("alert_level") in ("warning_80", "exceeded_100")
+    )
+    b_food_id = res_b_food.json().get("id") if food_b_ok else None
+    log_step(
+        27,
+        "Create Category Budget with Live Calculations (POST /api/v1/budgets)",
+        food_b_ok,
+        f"Status: {res_b_food.status_code}, ID: {b_food_id}, Spent: PKR {res_b_food.json().get('spent')}, "
+        f"Alert: {res_b_food.json().get('alert_level')} ({res_b_food.json().get('percentage_used')}%)"
+    )
+
+    # 28. Duplicate Budget Prevention
+    res_b_dup = requests.post(f"{BASE_URL}/api/v1/budgets", json={
+        "name": "Duplicate Food Budget",
+        "amount": "6000.00",
+        "category": "Food",
+        "month": curr_month,
+        "year": curr_year
+    }, headers=headers1)
+    dup_ok = (res_b_dup.status_code == 400 and "already exists" in res_b_dup.json().get("detail", "").lower())
+    log_step(
+        28,
+        "Duplicate Budget Overlap Prevention (400)",
+        dup_ok,
+        f"Server prevented duplicate category budget with detail: '{res_b_dup.json().get('detail')}'"
+    )
+
+    # 29. Budget Progress & Threshold Alerts
+    res_progress = requests.get(
+        f"{BASE_URL}/api/v1/budgets/progress?month={curr_month}&year={curr_year}",
+        headers=headers1
+    )
+    prog_data = res_progress.json() if res_progress.status_code == 200 else {}
+    prog_ok = (
+        res_progress.status_code == 200 and
+        prog_data.get("overall_budget") is not None and
+        len(prog_data.get("active_alerts", [])) >= 1
+    )
+    log_step(
+        29,
+        "Budget Progress & Active Alerts (GET /api/v1/budgets/progress)",
+        prog_ok,
+        f"Overall spent: {prog_data.get('overall_budget', {}).get('spent')}, "
+        f"Active alerts count: {len(prog_data.get('active_alerts', []))}"
+    )
+
+    # 30. Spending Analytics Aggregation
+    res_analytics = requests.get(
+        f"{BASE_URL}/api/v1/analytics/spending?month={curr_month}&year={curr_year}",
+        headers=headers1
+    )
+    ana_data = res_analytics.json() if res_analytics.status_code == 200 else {}
+    ana_ok = (
+        res_analytics.status_code == 200 and
+        ana_data.get("total_transactions") >= 3 and
+        ana_data.get("highest_spending_category") is not None and
+        len(ana_data.get("daily_spending", [])) >= 1
+    )
+    log_step(
+        30,
+        "Spending Analytics Aggregation (GET /api/v1/analytics/spending)",
+        ana_ok,
+        f"Total Spent: PKR {ana_data.get('total_spent')}, Highest: {ana_data.get('highest_spending_category', {}).get('category')}, "
+        f"Daily velocity: PKR {ana_data.get('average_daily_spending')}/day"
+    )
+
+    # 31. AI Financial Spending Insights
+    res_insights = requests.get(
+        f"{BASE_URL}/api/v1/analytics/insights?month={curr_month}&year={curr_year}",
+        headers=headers1
+    )
+    ins_data = res_insights.json() if res_insights.status_code == 200 else {}
+    ins_ok = (
+        res_insights.status_code == 200 and
+        len(ins_data.get("insights", [])) >= 2 and
+        "headline" in ins_data
+    )
+    log_step(
+        31,
+        "AI Financial Spending Insights (GET /api/v1/analytics/insights)",
+        ins_ok,
+        f"Headline: '{ins_data.get('headline')}', Generated Insights: {len(ins_data.get('insights', []))}, Provider: {ins_data.get('provider_used')}"
+    )
+
+    # 32. Multi-User Isolation & Budget Cleanup
+    # User 2 cannot access User 1's budget (404)
+    res_cross_b = requests.get(f"{BASE_URL}/api/v1/budgets/{b_food_id}", headers=headers2)
+    res_del_b = requests.delete(f"{BASE_URL}/api/v1/budgets/{b_food_id}", headers=headers1)
+    cleanup_ok = (res_cross_b.status_code == 404 and res_del_b.status_code == 200)
+    log_step(
+        32,
+        "Budget Multi-User Isolation & Deletion Enforcement",
+        cleanup_ok,
+        "User 2 received 404 on User 1's budget; User 1 deleted budget cleanly."
+    )
+
     print("\n" + "=" * 75)
-    print(" ALL 24 PHASE 1, PHASE 2 & PHASE 3 INTEGRATION CHECKS PASSED! ")
+    print(" ALL 32 PHASE 1, PHASE 2, PHASE 3 & PHASE 4 CHECKS PASSED! ")
     print("=" * 75)
 
 

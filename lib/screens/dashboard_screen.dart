@@ -4,10 +4,14 @@ import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/models/expense_model.dart';
 import 'package:kharcha_ai/models/expense_summary.dart';
 import 'package:kharcha_ai/models/user_model.dart';
+import 'package:kharcha_ai/screens/analytics_screen.dart';
+import 'package:kharcha_ai/screens/budget_screen.dart';
 import 'package:kharcha_ai/screens/login_screen.dart';
 import 'package:kharcha_ai/screens/profile_screen.dart';
 import 'package:kharcha_ai/screens/scan_receipt_screen.dart';
+import 'package:kharcha_ai/services/analytics_service.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
+import 'package:kharcha_ai/services/budget_service.dart';
 import 'package:kharcha_ai/services/expense_service.dart';
 import 'package:kharcha_ai/services/receipt_service.dart';
 import 'package:kharcha_ai/widgets/add_expense_sheet.dart';
@@ -178,6 +182,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (createdExpense != null && mounted) {
       _loadDashboardData();
     }
+  }
+
+  void _openBudgetScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BudgetScreen(
+          budgetService: BudgetService(apiClient: widget.authService.apiClient),
+        ),
+      ),
+    ).then((_) => _loadDashboardData());
+  }
+
+  void _openAnalyticsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnalyticsScreen(
+          analyticsService: AnalyticsService(apiClient: widget.authService.apiClient),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleLogout() async {
@@ -443,6 +469,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.document_scanner_outlined, color: AppColors.primary),
             tooltip: 'Scan Receipt with AI',
             onPressed: _openScanReceiptScreen,
+          ),
+          IconButton(
+            icon: const Icon(Icons.pie_chart_outline, color: AppColors.primary),
+            tooltip: 'Smart Budgets',
+            onPressed: _openBudgetScreen,
+          ),
+          IconButton(
+            icon: const Icon(Icons.insights, color: AppColors.primary),
+            tooltip: 'Analytics & Insights',
+            onPressed: _openAnalyticsScreen,
           ),
           IconButton(
             icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),

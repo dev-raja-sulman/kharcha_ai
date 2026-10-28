@@ -6,6 +6,7 @@ from app.db.base import Base
 # Import all models here so Base.metadata knows about them
 from app.models.user import User  # noqa: F401
 from app.models.expense import Expense  # noqa: F401
+from app.models.budget import Budget  # noqa: F401
 
 # Configure connection arguments (check_same_thread needed for SQLite)
 connect_args = {}

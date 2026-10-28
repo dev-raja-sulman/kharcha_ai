@@ -1,4 +1,5 @@
 from app.models.user import User
 from app.models.expense import Expense
+from app.models.budget import Budget
 
-__all__ = ["User", "Expense"]
+__all__ = ["User", "Expense", "Budget"]
