@@ -17,6 +17,24 @@ from app.schemas.expense import (
     PaymentMethodSummaryItem,
 )
 
+from app.schemas.recurring import (
+    RecurringExpenseCreateRequest,
+    RecurringExpenseListResponse,
+    RecurringExpenseResponse,
+    RecurringExpenseUpdateRequest,
+    RecurringFrequency,
+    RecurringProcessResponse,
+    RecurringStatus,
+)
+from app.schemas.reports import (
+    AdvancedReportResponse,
+    CategoryReportItem,
+    PeriodComparisonData,
+    RecurringVsRegularBreakdown,
+    ReportType,
+    TrendPoint,
+)
+
 __all__ = [
     "UserRegisterRequest",
     "UserLoginRequest",
@@ -32,4 +50,17 @@ __all__ = [
     "PaymentMethodSummaryItem",
     "ExpenseSummaryResponse",
     "ExpenseListResponse",
+    "RecurringFrequency",
+    "RecurringStatus",
+    "RecurringExpenseCreateRequest",
+    "RecurringExpenseUpdateRequest",
+    "RecurringExpenseResponse",
+    "RecurringExpenseListResponse",
+    "RecurringProcessResponse",
+    "ReportType",
+    "CategoryReportItem",
+    "TrendPoint",
+    "RecurringVsRegularBreakdown",
+    "PeriodComparisonData",
+    "AdvancedReportResponse",
 ]

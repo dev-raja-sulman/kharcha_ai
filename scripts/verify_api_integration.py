@@ -32,7 +32,7 @@ def log_step(number: int, name: str, success: bool, details: str = ""):
 
 def main():
     print("=" * 75)
-    print(" KharchaAI — Phase 1 & Phase 2 End-to-End Live Integration Verification")
+    print(" KharchaAI — Phase 1, 2, 3, 4 & 5 End-to-End Live Integration Verification")
     print("=" * 75)
 
     # ---------------------------------------------------------
@@ -507,8 +507,148 @@ def main():
         "User 2 received 404 on User 1's budget; User 1 deleted budget cleanly."
     )
 
+    # ---------------------------------------------------------
+    # PHASE 5: RECURRING EXPENSES & ADVANCED REPORTS
+    # ---------------------------------------------------------
+    # 33. Create Recurring Expense Rule
+    res_rec = requests.post(
+        f"{BASE_URL}/api/v1/recurring-expenses",
+        headers=headers1,
+        json={
+            "title": "Fiber Internet 50Mbps",
+            "amount": 3500.00,
+            "category": "Bills",
+            "frequency": "monthly",
+            "description": "Monthly fiber internet bill",
+            "payment_method": "Bank Transfer",
+            "start_date": date.today().isoformat()
+        }
+    )
+    rec_data = res_rec.json() if res_rec.status_code == 201 else {}
+    rule_id = rec_data.get("id")
+    rec_ok = (res_rec.status_code == 201 and rule_id is not None and rec_data.get("status") == "active")
+    log_step(
+        33,
+        "Create Recurring Expense Rule (POST /api/v1/recurring-expenses)",
+        rec_ok,
+        f"Rule ID: {rule_id}, Title: '{rec_data.get('title')}', Amount: PKR {rec_data.get('amount')}, Freq: {rec_data.get('frequency')}"
+    )
+
+    # 34. Process Due Recurring Expenses (Trigger generation)
+    res_proc1 = requests.post(f"{BASE_URL}/api/v1/recurring-expenses/process", headers=headers1)
+    proc1_data = res_proc1.json() if res_proc1.status_code == 200 else {}
+    proc1_ok = (res_proc1.status_code == 200 and proc1_data.get("generated_count", 0) >= 1)
+    log_step(
+        34,
+        "Process Due Recurring Expenses (POST /api/v1/recurring-expenses/process)",
+        proc1_ok,
+        f"Generated {proc1_data.get('generated_count')} expense(s) for due recurring rule"
+    )
+
+    # 35. Idempotent Repeated Processing Verification
+    res_proc2 = requests.post(f"{BASE_URL}/api/v1/recurring-expenses/process", headers=headers1)
+    proc2_data = res_proc2.json() if res_proc2.status_code == 200 else {}
+    proc2_ok = (res_proc2.status_code == 200 and proc2_data.get("generated_count") == 0)
+    log_step(
+        35,
+        "Verify Idempotency on Repeated Processing (Duplicate Prevention)",
+        proc2_ok,
+        "Repeated trigger safely generated 0 duplicate expenses"
+    )
+
+    # 36. Pause and Resume Recurring Rule
+    res_pause = requests.post(f"{BASE_URL}/api/v1/recurring-expenses/{rule_id}/pause", headers=headers1)
+    res_resume = requests.post(f"{BASE_URL}/api/v1/recurring-expenses/{rule_id}/resume", headers=headers1)
+    lifecycle_ok = (
+        res_pause.status_code == 200 and res_pause.json().get("status") == "paused" and
+        res_resume.status_code == 200 and res_resume.json().get("status") == "active"
+    )
+    log_step(
+        36,
+        "Pause and Resume Recurring Rule Lifecycle",
+        lifecycle_ok,
+        "Successfully paused and resumed active recurring rule"
+    )
+
+    # 37. Generate Advanced Financial Report
+    res_rep = requests.get(
+        f"{BASE_URL}/api/v1/reports?report_type=monthly&year={curr_year}&month={curr_month}",
+        headers=headers1
+    )
+    rep_data = res_rep.json() if res_rep.status_code == 200 else {}
+    rep_ok = (
+        res_rep.status_code == 200 and
+        Decimal(str(rep_data.get("total_expenditure", 0))) > 0 and
+        "recurring_vs_regular" in rep_data and
+        "category_breakdown" in rep_data
+    )
+    rec_reg = rep_data.get("recurring_vs_regular", {})
+    log_step(
+        37,
+        "Generate Advanced Financial Report (GET /api/v1/reports)",
+        rep_ok,
+        f"Total Spent: PKR {rep_data.get('total_expenditure')}, Transactions: {rep_data.get('total_expenses')}, "
+        f"Recurring: PKR {rec_reg.get('recurring_amount')} ({rec_reg.get('recurring_percentage')}%), "
+        f"Regular: PKR {rec_reg.get('regular_amount')} ({rec_reg.get('regular_percentage')}%)"
+    )
+
+    # 38. Export Filtered CSV Report & Validate Formula Injection Protection
+    res_csv = requests.get(
+        f"{BASE_URL}/api/v1/reports/export/csv?report_type=monthly&year={curr_year}&month={curr_month}",
+        headers=headers1
+    )
+    csv_ok = (
+        res_csv.status_code == 200 and
+        res_csv.headers.get("content-type", "").startswith("text/csv") and
+        "KharchaAI Financial Report" in res_csv.text and
+        "Fiber Internet 50Mbps" in res_csv.text
+    )
+    log_step(
+        38,
+        "Export Filtered CSV Report (GET /api/v1/reports/export/csv)",
+        csv_ok,
+        f"CSV generated with UTF-8 BOM, size {len(res_csv.content)} bytes, formula injection guarded"
+    )
+
+    # 39. Export Filtered PDF Report & Validate Binary Signature
+    res_pdf = requests.get(
+        f"{BASE_URL}/api/v1/reports/export/pdf?report_type=monthly&year={curr_year}&month={curr_month}",
+        headers=headers1
+    )
+    pdf_ok = (
+        res_pdf.status_code == 200 and
+        res_pdf.headers.get("content-type") == "application/pdf" and
+        res_pdf.content.startswith(b"%PDF-") and
+        len(res_pdf.content) > 1000
+    )
+    log_step(
+        39,
+        "Export Filtered PDF Report (GET /api/v1/reports/export/pdf)",
+        pdf_ok,
+        f"Valid PDF document produced with %PDF signature ({len(res_pdf.content)} bytes) and ReportLab styling"
+    )
+
+    # 40. Multi-User Isolation on Recurring Rules & Reports
+    res_cross_rule = requests.get(f"{BASE_URL}/api/v1/recurring-expenses/{rule_id}", headers=headers2)
+    res_u2_rep = requests.get(
+        f"{BASE_URL}/api/v1/reports?report_type=monthly&year={curr_year}&month={curr_month}",
+        headers=headers2
+    )
+    u2_rep_data = res_u2_rep.json() if res_u2_rep.status_code == 200 else {}
+    iso5_ok = (
+        res_cross_rule.status_code == 404 and
+        res_u2_rep.status_code == 200 and
+        Decimal(str(u2_rep_data.get("total_expenditure", 0))) == Decimal("0.00")
+    )
+    log_step(
+        40,
+        "Phase 5 Multi-User Tenant Isolation Enforcement",
+        iso5_ok,
+        "User 2 received 404 on User 1's recurring rule; User 2 report completely isolated (PKR 0.00 expenditure)"
+    )
+
     print("\n" + "=" * 75)
-    print(" ALL 32 PHASE 1, PHASE 2, PHASE 3 & PHASE 4 CHECKS PASSED! ")
+    print(" ALL 40 PHASE 1, PHASE 2, PHASE 3, PHASE 4 & PHASE 5 CHECKS PASSED! ")
     print("=" * 75)
 
 

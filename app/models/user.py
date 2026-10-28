@@ -44,5 +44,13 @@ class User(Base):
         passive_deletes=True
     )
 
+    # Relationship to user's recurring expense rules (cascades on delete)
+    recurring_expenses = relationship(
+        "RecurringExpense",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email='{self.email}' full_name='{self.full_name}'>"

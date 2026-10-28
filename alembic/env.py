@@ -15,6 +15,8 @@ from app.db.base import Base
 # Import all models to register with Base.metadata
 from app.models.user import User  # noqa: F401
 from app.models.expense import Expense  # noqa: F401
+from app.models.budget import Budget  # noqa: F401
+from app.models.recurring_expense import RecurringExpense  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

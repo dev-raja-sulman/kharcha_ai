@@ -8,12 +8,16 @@ import 'package:kharcha_ai/screens/analytics_screen.dart';
 import 'package:kharcha_ai/screens/budget_screen.dart';
 import 'package:kharcha_ai/screens/login_screen.dart';
 import 'package:kharcha_ai/screens/profile_screen.dart';
+import 'package:kharcha_ai/screens/recurring_expenses_screen.dart';
+import 'package:kharcha_ai/screens/reports_screen.dart';
 import 'package:kharcha_ai/screens/scan_receipt_screen.dart';
 import 'package:kharcha_ai/services/analytics_service.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
 import 'package:kharcha_ai/services/budget_service.dart';
 import 'package:kharcha_ai/services/expense_service.dart';
 import 'package:kharcha_ai/services/receipt_service.dart';
+import 'package:kharcha_ai/services/recurring_service.dart';
+import 'package:kharcha_ai/services/report_service.dart';
 import 'package:kharcha_ai/widgets/add_expense_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -201,6 +205,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(
         builder: (context) => AnalyticsScreen(
           analyticsService: AnalyticsService(apiClient: widget.authService.apiClient),
+        ),
+      ),
+    );
+  }
+
+  void _openRecurringScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecurringExpensesScreen(
+          recurringService: RecurringService(apiClient: widget.authService.apiClient),
+        ),
+      ),
+    ).then((_) => _loadDashboardData());
+  }
+
+  void _openReportsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportsScreen(
+          reportService: ReportService(apiClient: widget.authService.apiClient),
         ),
       ),
     );
@@ -471,6 +497,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: _openScanReceiptScreen,
           ),
           IconButton(
+            icon: const Icon(Icons.event_repeat, color: AppColors.primary),
+            tooltip: 'Recurring Expenses',
+            onPressed: _openRecurringScreen,
+          ),
+          IconButton(
+            icon: const Icon(Icons.assessment_outlined, color: AppColors.primary),
+            tooltip: 'Advanced Reports & Export',
+            onPressed: _openReportsScreen,
+          ),
+          IconButton(
             icon: const Icon(Icons.pie_chart_outline, color: AppColors.primary),
             tooltip: 'Smart Budgets',
             onPressed: _openBudgetScreen,
@@ -643,7 +679,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
+
+                    // Phase 5 Quick Action Shortcuts
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.event_repeat, size: 16, color: AppColors.primary),
+                            label: const Text('Recurring', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openRecurringScreen,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.assessment_outlined, size: 16, color: AppColors.primary),
+                            label: const Text('Reports', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openReportsScreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
 
                     // Category Filter Pills
                     SizedBox(

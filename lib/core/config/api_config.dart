@@ -68,6 +68,11 @@ class ApiConfig {
   static String get budgetProgressUrl => '$baseUrl/api/v1/budgets/progress';
   static String get spendingAnalyticsUrl => '$baseUrl/api/v1/analytics/spending';
   static String get spendingInsightsUrl => '$baseUrl/api/v1/analytics/insights';
+  static String get recurringExpensesUrl => '$baseUrl/api/v1/recurring-expenses';
+  static String get recurringProcessUrl => '$baseUrl/api/v1/recurring-expenses/process';
+  static String get reportsUrl => '$baseUrl/api/v1/reports';
+  static String get reportsCsvExportUrl => '$baseUrl/api/v1/reports/export/csv';
+  static String get reportsPdfExportUrl => '$baseUrl/api/v1/reports/export/pdf';
 
   // Network Timeout Configurations
   static const Duration connectTimeout = Duration(seconds: 10);

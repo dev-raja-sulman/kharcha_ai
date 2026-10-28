@@ -15,17 +15,23 @@ from app.schemas.auth import HealthResponse
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler.
-    Initializes database tables on startup.
+    Initializes database tables on startup and executes recurring expenses processing.
     """
-    # Initialize DB tables (Phase 1 uses SQLite, ready for Postgres in Phase 2)
     init_db()
+    try:
+        from app.db.session import SessionLocal
+        from app.services.recurring_service import RecurringService
+        with SessionLocal() as db:
+            RecurringService.process_due_expenses(db)
+    except Exception:
+        pass
     yield
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="KharchaAI - AI-Powered Expense & Financial Management API (Phase 1)",
+    version="1.5.0",
+    description="KharchaAI - AI-Powered Expense & Financial Management API (Phase 5: Recurring Expenses & Advanced Reports)",
     lifespan=lifespan
 )
 

@@ -567,9 +567,11 @@
         </div>
       </div>
 
-      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <button class="btn btn-sm btn-outline" style="flex: 1;" onclick="openBudgetsModal()">🎯 Smart Budgets</button>
-        <button class="btn btn-sm btn-outline" style="flex: 1;" onclick="openAnalyticsModal()">📊 Analytics & Insights</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+        <button class="btn btn-sm btn-outline" onclick="openBudgetsModal()">🎯 Smart Budgets</button>
+        <button class="btn btn-sm btn-outline" onclick="openAnalyticsModal()">📊 Analytics & AI</button>
+        <button class="btn btn-sm btn-outline" onclick="openRecurringModal()">🔄 Recurring Rules</button>
+        <button class="btn btn-sm btn-outline" onclick="openReportsModal()">📈 Reports & Export</button>
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -832,6 +834,147 @@
 
       <div id="analytics-content">
         <div style="text-align: center; padding: 24px;">Loading analytics...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recurring Expenses Modal -->
+  <div id="recurring-modal" class="modal-overlay">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>🔄</span> Recurring Expenses
+        </h3>
+        <button onclick="closeRecurringModal()" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <div id="recurring-error" class="banner banner-error" style="display: none;"></div>
+      <div id="recurring-success" class="banner banner-success" style="display: none;"></div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button class="btn btn-sm" style="flex: 1;" onclick="processRecurringDue()">⚡ Run Scheduler (Process Due)</button>
+        <button class="btn btn-sm btn-outline" onclick="loadRecurringRules()">↻ Refresh</button>
+      </div>
+
+      <!-- Create Recurring Rule Form -->
+      <div style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 18px;">
+        <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 10px;">+ New Recurring Rule</div>
+        <form id="create-recurring-form">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label style="font-size: 0.75rem;">Title</label>
+            <input type="text" id="rec-title" placeholder="e.g. Netflix, Apartment Rent, Gym" required style="padding: 8px;">
+          </div>
+          <div class="row" style="margin-bottom: 8px;">
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Amount (PKR)</label>
+              <input type="number" step="0.01" min="0.01" id="rec-amount" placeholder="2500" required style="padding: 8px;">
+            </div>
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Category</label>
+              <select id="rec-category" style="padding: 8px;">
+                <option value="Bills" selected>Bills</option>
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Education">Education</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Rent">Rent</option>
+                <option value="Travel">Travel</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom: 8px;">
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Frequency</label>
+              <select id="rec-freq" style="padding: 8px;">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly" selected>Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Payment Method</label>
+              <select id="rec-payment" style="padding: 8px;">
+                <option value="Cash">Cash</option>
+                <option value="Card" selected>Card</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="EasyPaisa">EasyPaisa</option>
+                <option value="JazzCash">JazzCash</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom: 8px;">
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Start Date</label>
+              <input type="date" id="rec-start-date" style="padding: 8px;" required>
+            </div>
+            <div class="form-group">
+              <label style="font-size: 0.75rem;">Optional End Date</label>
+              <input type="date" id="rec-end-date" style="padding: 8px;">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-size: 0.75rem;">Notes (Optional)</label>
+            <input type="text" id="rec-desc" placeholder="Monthly streaming service..." style="padding: 8px;">
+          </div>
+          <button type="submit" class="btn btn-sm" style="width: 100%;">Create Recurring Rule</button>
+        </form>
+      </div>
+
+      <!-- Rules List -->
+      <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 10px;">Active & Paused Rules</div>
+      <div id="recurring-rules-container">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced Reports Modal -->
+  <div id="reports-modal" class="modal-overlay">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>📈</span> Advanced Expense Reports
+        </h3>
+        <button onclick="closeReportsModal()" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <!-- Filters & Downloads -->
+      <div style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 16px;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+          <button class="chip active" id="rep-chip-monthly" onclick="selectReportType('monthly', this)">Monthly</button>
+          <button class="chip" id="rep-chip-daily" onclick="selectReportType('daily', this)">Daily</button>
+          <button class="chip" id="rep-chip-weekly" onclick="selectReportType('weekly', this)">Weekly</button>
+          <button class="chip" id="rep-chip-yearly" onclick="selectReportType('yearly', this)">Yearly</button>
+          <button class="chip" id="rep-chip-custom" onclick="selectReportType('custom', this)">Custom</button>
+        </div>
+
+        <div id="rep-custom-dates" style="display: none; margin-bottom: 10px;">
+          <div class="row">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.72rem;">Start Date</label>
+              <input type="date" id="rep-start-date" style="padding: 6px; font-size: 0.8rem;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.72rem;">End Date</label>
+              <input type="date" id="rep-end-date" style="padding: 6px; font-size: 0.8rem;">
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px; width: 100%;" onclick="loadAdvancedReport()">Apply Custom Dates</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-sm" style="flex: 1; background: #0F766E;" onclick="downloadReportCsv()">⬇ Export CSV</button>
+          <button class="btn btn-sm" style="flex: 1; background: #1E293B;" onclick="downloadReportPdf()">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Dynamic Report Content -->
+      <div id="reports-content">
+        <div style="text-align: center; padding: 24px;">Loading report...</div>
       </div>
     </div>
   </div>
@@ -1434,6 +1577,383 @@
         `;
       } catch (err) {
         contentEl.innerHTML = `<div class="banner banner-error">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Phase 5: Recurring Expenses
+    // ---------------------------------------------------------------------------
+    let activeReportType = 'monthly';
+
+    function openRecurringModal() {
+      document.getElementById('rec-start-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('recurring-modal').classList.add('active');
+      loadRecurringRules();
+    }
+
+    function closeRecurringModal() {
+      document.getElementById('recurring-modal').classList.remove('active');
+    }
+
+    async function loadRecurringRules() {
+      const container = document.getElementById('recurring-rules-container');
+      container.innerHTML = '<div style="text-align: center; padding: 16px;">Loading rules...</div>';
+
+      try {
+        const res = await fetch('/api/v1/recurring-expenses', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to load recurring rules');
+
+        if (!data.items || data.items.length === 0) {
+          container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px; font-size: 0.85rem;">No recurring rules set up yet.</div>';
+          return;
+        }
+
+        container.innerHTML = data.items.map(rule => {
+          const statusColors = {
+            active: '#10B981',
+            paused: '#EA580C',
+            cancelled: '#EF4444',
+            completed: '#64748B'
+          };
+          const color = statusColors[rule.status] || '#64748B';
+          const isCancelled = rule.status === 'cancelled' || rule.status === 'completed';
+
+          return `
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="font-weight: 700; font-size: 0.95rem;">${escapeHtml(rule.title)}</div>
+                <span style="background: ${color}20; color: ${color}; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">
+                  ${rule.status.toUpperCase()}
+                </span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px;">
+                <span style="font-weight: 800; color: var(--primary); font-size: 1.05rem;">PKR ${Number(rule.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                <span style="font-size: 0.75rem; background: var(--background); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary);">${escapeHtml(rule.frequency.toUpperCase())}</span>
+                <span style="font-size: 0.75rem; background: var(--background); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary);">${escapeHtml(rule.category)}</span>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+                📅 Next: <b>${rule.next_scheduled_date}</b> ${rule.end_date ? '• Ends: ' + rule.end_date : ''}
+              </div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <button class="btn btn-sm btn-outline" style="padding: 4px 8px; font-size: 0.72rem;" onclick="viewRecurringHistory(${rule.id}, '${escapeHtml(rule.title)}')">History</button>
+                ${!isCancelled ? `
+                  <button class="btn btn-sm btn-outline" style="padding: 4px 8px; font-size: 0.72rem; color: ${rule.status === 'active' ? '#EA580C' : '#10B981'};" onclick="togglePauseRecurring(${rule.id}, '${rule.status}')">
+                    ${rule.status === 'active' ? 'Pause' : 'Resume'}
+                  </button>
+                  <button class="btn btn-sm btn-danger" style="padding: 4px 8px; font-size: 0.72rem;" onclick="cancelRecurringRule(${rule.id})">Cancel</button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="banner banner-error">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    document.getElementById('create-recurring-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('recurring-error');
+      const succBox = document.getElementById('recurring-success');
+      errBox.style.display = 'none';
+      succBox.style.display = 'none';
+
+      const title = document.getElementById('rec-title').value;
+      const amount = parseFloat(document.getElementById('rec-amount').value);
+      const category = document.getElementById('rec-category').value;
+      const frequency = document.getElementById('rec-freq').value;
+      const payment_method = document.getElementById('rec-payment').value;
+      const start_date = document.getElementById('rec-start-date').value;
+      const end_date_val = document.getElementById('rec-end-date').value;
+      const description = document.getElementById('rec-desc').value;
+
+      const payload = {
+        title,
+        amount,
+        category,
+        frequency,
+        payment_method,
+        start_date: start_date || undefined,
+        end_date: end_date_val || undefined,
+        description: description || undefined
+      };
+
+      try {
+        const res = await fetch('/api/v1/recurring-expenses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to create recurring rule');
+
+        document.getElementById('create-recurring-form').reset();
+        document.getElementById('rec-start-date').value = new Date().toISOString().split('T')[0];
+        succBox.textContent = `Recurring rule for "${title}" created successfully!`;
+        succBox.style.display = 'flex';
+        loadRecurringRules();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    });
+
+    async function processRecurringDue() {
+      const succBox = document.getElementById('recurring-success');
+      const errBox = document.getElementById('recurring-error');
+      errBox.style.display = 'none';
+      try {
+        const res = await fetch('/api/v1/recurring-expenses/process', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to process recurring expenses');
+
+        succBox.textContent = data.message;
+        succBox.style.display = 'flex';
+        loadRecurringRules();
+        loadDashboard();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    }
+
+    async function togglePauseRecurring(ruleId, currentStatus) {
+      const endpoint = currentStatus === 'active' ? `/api/v1/recurring-expenses/${ruleId}/pause` : `/api/v1/recurring-expenses/${ruleId}/resume`;
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Action failed');
+        loadRecurringRules();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function cancelRecurringRule(ruleId) {
+      if (!confirm('Are you sure you want to cancel this recurring rule?')) return;
+      try {
+        const res = await fetch(`/api/v1/recurring-expenses/${ruleId}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Cancel failed');
+        loadRecurringRules();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function viewRecurringHistory(ruleId, title) {
+      try {
+        const res = await fetch(`/api/v1/recurring-expenses/${ruleId}/history`, {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to load history');
+
+        let msg = `Generated Expenses for "${title}":\n\n`;
+        if (data.length === 0) {
+          msg += 'No expenses generated yet.';
+        } else {
+          data.forEach(e => {
+            msg += `• ${e.expense_date}: PKR ${Number(e.amount).toFixed(2)} (${e.payment_method})\n`;
+          });
+        }
+        alert(msg);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Phase 5: Advanced Reports
+    // ---------------------------------------------------------------------------
+    function openReportsModal() {
+      const today = new Date().toISOString().split('T')[0];
+      const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      document.getElementById('rep-end-date').value = today;
+      document.getElementById('rep-start-date').value = monthAgo;
+      document.getElementById('reports-modal').classList.add('active');
+      loadAdvancedReport();
+    }
+
+    function closeReportsModal() {
+      document.getElementById('reports-modal').classList.remove('active');
+    }
+
+    function selectReportType(type, el) {
+      activeReportType = type;
+      document.querySelectorAll('#reports-modal .chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+
+      const customBox = document.getElementById('rep-custom-dates');
+      if (type === 'custom') {
+        customBox.style.display = 'block';
+      } else {
+        customBox.style.display = 'none';
+        loadAdvancedReport();
+      }
+    }
+
+    function buildReportUrl(path) {
+      let url = `${path}?report_type=${activeReportType}`;
+      if (activeReportType === 'custom') {
+        const s = document.getElementById('rep-start-date').value;
+        const e = document.getElementById('rep-end-date').value;
+        if (s) url += `&start_date=${s}`;
+        if (e) url += `&end_date=${e}`;
+      }
+      return url;
+    }
+
+    async function loadAdvancedReport() {
+      const container = document.getElementById('reports-content');
+      container.innerHTML = '<div style="text-align: center; padding: 24px;">Generating advanced report...</div>';
+
+      try {
+        const res = await fetch(buildReportUrl('/api/v1/reports'), {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const rep = await res.json();
+        if (!res.ok) throw new Error(rep.detail || 'Failed to load report');
+
+        const comp = rep.period_comparison;
+        const trendColor = comp && comp.trend === 'decreased' ? 'var(--success)' : (comp && comp.trend === 'increased' ? 'var(--error)' : 'var(--text-secondary)');
+        const trendSign = comp && comp.difference > 0 ? '+' : '';
+
+        container.innerHTML = `
+          <!-- Period Banner -->
+          <div style="background: var(--primary-surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+            <div style="font-weight: 700; color: var(--primary); font-size: 0.9rem;">
+              📅 ${rep.start_date} to ${rep.end_date} (${rep.report_type.toUpperCase()})
+            </div>
+          </div>
+
+          <!-- KPI Cards Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px;">
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Total Expenditure</div>
+              <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary); margin-top: 2px;">
+                PKR ${Number(rep.total_expenditure).toLocaleString('en-US', {minimumFractionDigits: 2})}
+              </div>
+            </div>
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px;">
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Total Transactions</div>
+              <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 2px;">
+                ${rep.total_expenses}
+              </div>
+            </div>
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px;">
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Daily Average</div>
+              <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+                PKR ${Number(rep.average_daily_spending).toLocaleString('en-US', {minimumFractionDigits: 2})}
+              </div>
+            </div>
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px;">
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Top Category</div>
+              <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+                ${rep.highest_spending_category ? escapeHtml(rep.highest_spending_category.category) : '—'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Recurring vs Regular Spending -->
+          <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 8px;">Recurring vs One-Off Spending</div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+              <span>🔄 Recurring: PKR ${Number(rep.recurring_vs_regular.recurring_amount).toFixed(2)} (${rep.recurring_vs_regular.recurring_percentage}%)</span>
+              <span>⚡ One-Off: PKR ${Number(rep.recurring_vs_regular.regular_amount).toFixed(2)} (${rep.recurring_vs_regular.regular_percentage}%)</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; display: flex;">
+              <div style="width: ${rep.recurring_vs_regular.recurring_percentage}%; height: 100%; background: #3B82F6;"></div>
+              <div style="width: ${rep.recurring_vs_regular.regular_percentage}%; height: 100%; background: var(--primary);"></div>
+            </div>
+          </div>
+
+          <!-- Period Comparison -->
+          ${comp ? `
+            <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Period Comparison</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">
+                Previous: ${comp.previous_start_date} to ${comp.previous_end_date} (PKR ${Number(comp.previous_expenditure).toFixed(2)})
+              </div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: ${trendColor};">
+                ${comp.trend.toUpperCase()}: ${trendSign}PKR ${Math.abs(comp.difference).toFixed(2)} (${comp.percentage_change >= 0 ? '+' : ''}${comp.percentage_change}%)
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Category Distribution -->
+          <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px;">
+            <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 10px;">Category Breakdown</div>
+            ${rep.category_breakdown && rep.category_breakdown.length > 0 ? rep.category_breakdown.map(c => `
+              <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 3px;">
+                  <span>${escapeHtml(c.category)} (${c.count} txns)</span>
+                  <span>PKR ${Number(c.total_amount).toFixed(2)} (${c.percentage.toFixed(1)}%)</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${Math.min(100, c.percentage)}%; height: 100%; background: var(--primary); border-radius: 3px;"></div>
+                </div>
+              </div>
+            `).join('') : '<div style="font-size: 0.8rem; color: var(--text-muted);">No category expenditures in this timeframe.</div>'}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<div class="banner banner-error">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function downloadReportCsv() {
+      try {
+        const url = buildReportUrl('/api/v1/reports/export/csv');
+        const res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        if (!res.ok) throw new Error('CSV Export failed');
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `kharcha_report_${activeReportType}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function downloadReportPdf() {
+      try {
+        const url = buildReportUrl('/api/v1/reports/export/pdf');
+        const res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        if (!res.ok) throw new Error('PDF Export failed');
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `kharcha_report_${activeReportType}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (err) {
+        alert(err.message);
       }
     }
 

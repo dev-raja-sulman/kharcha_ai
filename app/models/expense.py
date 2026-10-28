@@ -43,6 +43,13 @@ class Expense(Base):
         index=True
     )
     payment_method = Column(String(50), nullable=False, default="Cash")
+    recurring_rule_id = Column(
+        Integer,
+        ForeignKey("recurring_expenses.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    recurring_occurrence_date = Column(Date, nullable=True, index=True)
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -57,12 +64,14 @@ class Expense(Base):
 
     # Relationships
     user = relationship("User", back_populates="expenses")
+    recurring_rule = relationship("RecurringExpense", back_populates="expenses")
 
     # Table Constraints & Composite Indexes
     __table_args__ = (
         CheckConstraint("amount > 0", name="check_positive_expense_amount"),
         Index("ix_expenses_user_date", "user_id", "expense_date"),
         Index("ix_expenses_user_category", "user_id", "category"),
+        Index("uq_expenses_recurring_occurrence", "recurring_rule_id", "recurring_occurrence_date", unique=True),
     )
 
     def __repr__(self) -> str:
