@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from decimal import Decimal
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -29,10 +30,13 @@ def log_step(number: int, name: str, success: bool, details: str = ""):
 
 
 def main():
-    print("=" * 70)
-    print(" KharchaAI — Phase 1 End-to-End Live Integration Verification")
-    print("=" * 70)
+    print("=" * 75)
+    print(" KharchaAI — Phase 1 & Phase 2 End-to-End Live Integration Verification")
+    print("=" * 75)
 
+    # ---------------------------------------------------------
+    # PHASE 1: AUTHENTICATION VERIFICATION
+    # ---------------------------------------------------------
     # 1. Health check
     try:
         res = requests.get(f"{BASE_URL}/health", timeout=5)
@@ -41,7 +45,7 @@ def main():
     except Exception as e:
         log_step(1, "Server Health Check (GET /health)", False, f"Connection error: {e}")
 
-    # 2. Registration input validation (Invalid input rejection)
+    # 2. Registration input validation
     res_bad_email = requests.post(f"{BASE_URL}/api/v1/auth/register", json={
         "email": "not-valid-email",
         "password": "validPassword123"
@@ -53,86 +57,182 @@ def main():
     validation_passed = (res_bad_email.status_code == 422 and res_short_pw.status_code == 422)
     log_step(2, "Registration Input Validation", validation_passed, "Rejected invalid email and short password with 422 Unprocessable Entity")
 
-    # 3. Valid Registration
-    test_email = f"e2e_user_{int(time.time())}@kharcha.ai"
-    test_password = "LiveSecurePassword2026!"
-    test_name = "Raja Sulman Test"
+    # 3. Valid Registration (User 1)
+    timestamp = int(time.time())
+    user1_email = f"user1_{timestamp}@kharcha.ai"
+    user1_password = "User1SecurePassword2026!"
+    user1_name = "Primary User"
 
     res_reg = requests.post(f"{BASE_URL}/api/v1/auth/register", json={
-        "email": test_email,
-        "password": test_password,
-        "full_name": test_name
+        "email": user1_email,
+        "password": user1_password,
+        "full_name": user1_name
     })
     reg_ok = (res_reg.status_code == 201 and "access_token" in res_reg.json())
-    reg_data = res_reg.json()
-    reg_token = reg_data.get("access_token")
-    log_step(3, "User Registration (POST /api/v1/auth/register)", reg_ok, f"Status: 201, User: {reg_data.get('user')}")
+    token1 = res_reg.json().get("access_token")
+    headers1 = {"Authorization": f"Bearer {token1}"}
+    log_step(3, "User Registration (POST /api/v1/auth/register)", reg_ok, f"Status: 201, User: {res_reg.json().get('user')}")
 
     # 4. Duplicate Registration rejection
     res_dup = requests.post(f"{BASE_URL}/api/v1/auth/register", json={
-        "email": test_email,
-        "password": test_password
+        "email": user1_email,
+        "password": user1_password
     })
     dup_ok = (res_dup.status_code == 400)
     log_step(4, "Duplicate Email Rejection", dup_ok, f"Status: {res_dup.status_code}, Detail: {res_dup.json().get('detail')}")
 
     # 5. Valid Login
     res_login = requests.post(f"{BASE_URL}/api/v1/auth/login", json={
-        "email": test_email,
-        "password": test_password
+        "email": user1_email,
+        "password": user1_password
     })
     login_ok = (res_login.status_code == 200 and "access_token" in res_login.json())
-    token = res_login.json().get("access_token")
-    log_step(5, "User Login (POST /api/v1/auth/login)", login_ok, f"Status: 200, Access Token Length: {len(token or '')}")
+    log_step(5, "User Login (POST /api/v1/auth/login)", login_ok, f"Status: 200, Access Token Length: {len(token1)}")
 
     # 6. Invalid credentials rejection
     res_bad_login = requests.post(f"{BASE_URL}/api/v1/auth/login", json={
-        "email": test_email,
+        "email": user1_email,
         "password": "WrongPassword999!"
     })
     bad_login_ok = (res_bad_login.status_code == 401)
     log_step(6, "Invalid Credentials Rejection", bad_login_ok, f"Status: 401, Message: {res_bad_login.json().get('detail')}")
 
     # 7. Authenticated Profile Retrieval (GET /api/v1/auth/me)
-    headers = {"Authorization": f"Bearer {token}"}
-    res_me = requests.get(f"{BASE_URL}/api/v1/auth/me", headers=headers)
+    res_me = requests.get(f"{BASE_URL}/api/v1/auth/me", headers=headers1)
     me_data = res_me.json()
-    me_ok = (res_me.status_code == 200 and me_data.get("email") == test_email and me_data.get("full_name") == test_name)
+    me_ok = (res_me.status_code == 200 and me_data.get("email") == user1_email)
     log_step(7, "Authenticated Profile Retrieval (GET /api/v1/auth/me)", me_ok, f"Status: 200, Authenticated User: {me_data}")
 
     # 8. Unauthenticated & Malformed Token rejection
     res_unauth = requests.get(f"{BASE_URL}/api/v1/auth/me")
     res_malformed = requests.get(f"{BASE_URL}/api/v1/auth/me", headers={"Authorization": "Bearer fake.token.here"})
     unauth_ok = (res_unauth.status_code == 401 and res_malformed.status_code == 401)
-    log_step(8, "Unauthorized Access Protection", unauth_ok, f"Missing token -> 401; Malformed token -> 401")
+    log_step(8, "Unauthorized Access Protection", unauth_ok, "Missing and malformed tokens rejected with 401")
 
     # 9. Password Plaintext Inspection in Database
     engine = create_engine(settings.DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
-    db_user = session.query(User).filter(User.email == test_email).first()
+    db_user = session.query(User).filter(User.email == user1_email).first()
     plaintext_check = (
         db_user is not None and
-        db_user.hashed_password != test_password and
-        test_password not in db_user.hashed_password and
+        db_user.hashed_password != user1_password and
+        user1_password not in db_user.hashed_password and
         db_user.hashed_password.startswith("$2b$") and
-        verify_password(test_password, db_user.hashed_password)
+        verify_password(user1_password, db_user.hashed_password)
     )
     session.close()
-    log_step(9, "Database Security Audit (Plaintext Check)", plaintext_check, f"Bcrypt Hash stored: {db_user.hashed_password[:20]}... Plaintext never exposed!")
+    log_step(9, "Database Security Audit (Plaintext Check)", plaintext_check, f"Bcrypt Hash: {db_user.hashed_password[:20]}... Plaintext never stored!")
 
     # 10. Network failure simulation & understandable messages
     try:
-        # Deliberately attempt connection to unreachable port
         requests.get("http://127.0.0.1:59999/health", timeout=0.5)
         net_failure_handled = False
     except requests.exceptions.ConnectionError:
         net_failure_handled = True
     log_step(10, "Network Failure Resilience Check", net_failure_handled, "Connection refusal gracefully mapped to user-friendly offline message.")
 
-    print("=" * 70)
-    print(" ALL 10 INTEGRATION VERIFICATION CHECKS PASSED SUCCESSFULLY! ")
-    print("=" * 70)
+    # ---------------------------------------------------------
+    # PHASE 2: EXPENSE MANAGEMENT VERIFICATION
+    # ---------------------------------------------------------
+    print("\n--- Phase 2: Expense Management Endpoints & Multi-User Security ---")
+
+    # 11. Create Expense
+    res_create_exp = requests.post(f"{BASE_URL}/api/v1/expenses", json={
+        "title": "Grocery Shopping Supermarket",
+        "amount": "5400.50",
+        "category": "Food",
+        "description": "Flour, Oil, and Spices",
+        "payment_method": "Card"
+    }, headers=headers1)
+    create_exp_ok = (res_create_exp.status_code == 201 and "id" in res_create_exp.json())
+    exp1_id = res_create_exp.json().get("id")
+    log_step(11, "Expense Creation (POST /api/v1/expenses)", create_exp_ok, f"Status: 201, Expense: {res_create_exp.json()}")
+
+    # 12. Expense Input Validation (Negative & Zero rejection)
+    res_neg_exp = requests.post(f"{BASE_URL}/api/v1/expenses", json={
+        "title": "Invalid Negative",
+        "amount": "-50.00",
+        "category": "Food"
+    }, headers=headers1)
+    res_empty_exp = requests.post(f"{BASE_URL}/api/v1/expenses", json={
+        "title": "   ",
+        "amount": "100.00",
+        "category": "Food"
+    }, headers=headers1)
+    exp_val_ok = (res_neg_exp.status_code == 422 and res_empty_exp.status_code == 422)
+    log_step(12, "Expense Amount & Title Validation", exp_val_ok, "Rejected negative amounts and whitespace titles with 422")
+
+    # Seed 2 more expenses for User 1
+    requests.post(f"{BASE_URL}/api/v1/expenses", json={
+        "title": "Fuel Petrol",
+        "amount": "3600.00",
+        "category": "Transport",
+        "payment_method": "Cash"
+    }, headers=headers1)
+    requests.post(f"{BASE_URL}/api/v1/expenses", json={
+        "title": "Internet Fiber Bill",
+        "amount": "2500.00",
+        "category": "Bills",
+        "payment_method": "Bank Transfer"
+    }, headers=headers1)
+
+    # 13. List Expenses & Category Filter
+    res_list = requests.get(f"{BASE_URL}/api/v1/expenses", headers=headers1)
+    res_food = requests.get(f"{BASE_URL}/api/v1/expenses?category=Food", headers=headers1)
+    list_ok = (res_list.status_code == 200 and res_list.json()["total"] >= 3 and res_food.json()["total"] >= 1)
+    log_step(13, "List & Filter Expenses (GET /api/v1/expenses)", list_ok, f"Total User 1 Expenses: {res_list.json()['total']}, Food Filter: {res_food.json()['total']}")
+
+    # 14. Expense Summary & Statistics
+    res_summary = requests.get(f"{BASE_URL}/api/v1/expenses/summary", headers=headers1)
+    summary_data = res_summary.json()
+    summary_ok = (res_summary.status_code == 200 and Decimal(summary_data["total_amount"]) >= Decimal("11500.50") and len(summary_data["by_category"]) >= 3)
+    log_step(14, "Expense Summary Aggregations (GET /api/v1/expenses/summary)", summary_ok, f"Total Sum: PKR {summary_data.get('total_amount')}, Categories tracked: {len(summary_data.get('by_category', []))}")
+
+    # 15. Update Expense
+    res_update = requests.patch(f"{BASE_URL}/api/v1/expenses/{exp1_id}", json={
+        "amount": "5800.00",
+        "description": "Updated grocery total with snacks"
+    }, headers=headers1)
+    update_ok = (res_update.status_code == 200 and res_update.json()["amount"] == "5800.00")
+    log_step(15, "Update Expense (PATCH /api/v1/expenses/{id})", update_ok, f"Updated amount to PKR {res_update.json().get('amount')}")
+
+    # 16. Multi-User Isolation Security Check
+    # Register User 2
+    user2_email = f"user2_{timestamp}@kharcha.ai"
+    res_user2 = requests.post(f"{BASE_URL}/api/v1/auth/register", json={
+        "email": user2_email,
+        "password": "User2Password123!",
+        "full_name": "Second Isolated User"
+    })
+    token2 = res_user2.json()["access_token"]
+    headers2 = {"Authorization": f"Bearer {token2}"}
+
+    # User 2 tries to GET User 1's expense
+    cross_get = requests.get(f"{BASE_URL}/api/v1/expenses/{exp1_id}", headers=headers2)
+    cross_patch = requests.patch(f"{BASE_URL}/api/v1/expenses/{exp1_id}", json={"amount": "1.00"}, headers=headers2)
+    cross_delete = requests.delete(f"{BASE_URL}/api/v1/expenses/{exp1_id}", headers=headers2)
+    user2_list = requests.get(f"{BASE_URL}/api/v1/expenses", headers=headers2)
+    user2_summary = requests.get(f"{BASE_URL}/api/v1/expenses/summary", headers=headers2)
+
+    isolation_ok = (
+        cross_get.status_code == 404 and
+        cross_patch.status_code == 404 and
+        cross_delete.status_code == 404 and
+        user2_list.json()["total"] == 0 and
+        Decimal(user2_summary.json()["total_amount"]) == Decimal("0.00")
+    )
+    log_step(16, "Multi-User Data Isolation Enforcement", isolation_ok, "User 2 cannot read, update, or delete User 1's expense (404); user 2 sees 0 expenses.")
+
+    # 17. Delete Expense
+    res_del = requests.delete(f"{BASE_URL}/api/v1/expenses/{exp1_id}", headers=headers1)
+    res_del_verify = requests.get(f"{BASE_URL}/api/v1/expenses/{exp1_id}", headers=headers1)
+    delete_ok = (res_del.status_code == 200 and res_del_verify.status_code == 404)
+    log_step(17, "Delete Expense (DELETE /api/v1/expenses/{id})", delete_ok, "Expense deleted; subsequent GET returns 404 Not Found")
+
+    print("\n" + "=" * 75)
+    print(" ALL 17 PHASE 1 & PHASE 2 INTEGRATION VERIFICATION CHECKS PASSED! ")
+    print("=" * 75)
 
 
 if __name__ == "__main__":

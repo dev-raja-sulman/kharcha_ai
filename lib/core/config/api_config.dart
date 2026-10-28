@@ -60,6 +60,9 @@ class ApiConfig {
   static String get registerUrl => '$baseUrl/api/v1/auth/register';
   static String get loginUrl => '$baseUrl/api/v1/auth/login';
   static String get meUrl => '$baseUrl/api/v1/auth/me';
+  static String get expensesUrl => '$baseUrl/api/v1/expenses';
+  static String get expenseSummaryUrl => '$baseUrl/api/v1/expenses/summary';
+  static String get expenseCategoriesUrl => '$baseUrl/api/v1/expenses/categories';
 
   // Network Timeout Configurations
   static const Duration connectTimeout = Duration(seconds: 10);

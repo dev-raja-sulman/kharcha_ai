@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
@@ -25,6 +26,14 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
+    )
+
+    # Relationship to user's expenses (cascades on delete)
+    expenses = relationship(
+        "Expense",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
 
     def __repr__(self) -> str:

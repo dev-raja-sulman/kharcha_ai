@@ -5,6 +5,17 @@ from app.schemas.auth import (
     UserRegisterRequest,
     UserResponse,
 )
+from app.schemas.expense import (
+    CategorySummaryItem,
+    ExpenseCategory,
+    ExpenseCreateRequest,
+    ExpenseListResponse,
+    ExpenseResponse,
+    ExpenseSummaryResponse,
+    ExpenseUpdateRequest,
+    PaymentMethod,
+    PaymentMethodSummaryItem,
+)
 
 __all__ = [
     "UserRegisterRequest",
@@ -12,4 +23,13 @@ __all__ = [
     "UserResponse",
     "TokenResponse",
     "HealthResponse",
+    "ExpenseCategory",
+    "PaymentMethod",
+    "ExpenseCreateRequest",
+    "ExpenseUpdateRequest",
+    "ExpenseResponse",
+    "CategorySummaryItem",
+    "PaymentMethodSummaryItem",
+    "ExpenseSummaryResponse",
+    "ExpenseListResponse",
 ]

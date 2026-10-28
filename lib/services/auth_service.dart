@@ -16,6 +16,8 @@ class AuthService {
   })  : _apiClient = apiClient,
         _storage = storage;
 
+  ApiClient get apiClient => _apiClient;
+
   /// Register a new account on KharchaAI backend
   Future<UserModel> register({
     required String email,
