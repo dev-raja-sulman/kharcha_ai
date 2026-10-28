@@ -1,6 +1,6 @@
-# KharchaAI — Phase 1: Authentication & Integration
+# KharchaAI — Phase 1 & Phase 2: Authentication & Expense Management
 
-KharchaAI is an AI-powered personal expense tracker and financial management app. This repository contains the complete **Phase 1** implementation: modular FastAPI authentication backend integrated with a production-grade Flutter frontend.
+KharchaAI is an AI-powered personal expense tracker and financial management app. This repository contains the complete **Phase 1** (Authentication & Flutter-FastAPI integration) and **Phase 2** (Expense Management, PostgreSQL architecture with Alembic migrations, Multi-User Isolation Security, and Flutter Dashboard integration).
 
 ---
 
@@ -8,12 +8,16 @@ KharchaAI is an AI-powered personal expense tracker and financial management app
 
 ```
 Karcha AI App/
+├── alembic/                             # Alembic Database Migrations (PostgreSQL/SQLite)
+│   ├── env.py                           # Dynamic migration runner connected to Base.metadata
+│   └── versions/                        # Versioned migration revision scripts
 ├── app/                                 # FastAPI Backend (Modular Architecture)
 │   ├── api/
 │   │   ├── deps.py                      # JWT Bearer token dependency (get_current_user)
-│   │   ├── api.py                       # v1 router registry
+│   │   ├── api.py                       # v1 router registry (Auth + Expenses)
 │   │   └── routes/
-│   │       └── auth.py                  # Endpoints: /register, /login, /me
+│   │       ├── auth.py                  # Endpoints: /register, /login, /me
+│   │       └── expenses.py              # Endpoints: /expenses, /expenses/summary, /expenses/{id}
 │   ├── core/
 │   │   ├── config.py                    # Settings & environment variables (pydantic-settings)
 │   │   └── security.py                  # Direct bcrypt hashing & JWT encoding/decoding
@@ -21,15 +25,19 @@ Karcha AI App/
 │   │   ├── base.py                      # SQLAlchemy declarative base
 │   │   └── session.py                   # Engine, SessionLocal, init_db, get_db generator
 │   ├── models/
-│   │   └── user.py                      # User model (id, email, hashed_password, full_name, is_active, timestamps)
+│   │   ├── user.py                      # User model (id, email, hashed_password, full_name, is_active)
+│   │   └── expense.py                   # Expense model (Numeric(12,2), category index, check constraints)
 │   ├── schemas/
-│   │   └── auth.py                      # Request/Response schemas with strict Pydantic validation
+│   │   ├── auth.py                      # Auth request/response schemas
+│   │   └── expense.py                   # Expense schemas, Enum categories, summaries
 │   ├── services/
-│   │   └── auth_service.py              # Business logic: registration, authentication, profile lookups
-│   ├── tests/                           # Pytest automated test suite
+│   │   ├── auth_service.py              # Business logic: registration, authentication, profile lookups
+│   │   └── expense_service.py           # Multi-tenant expense CRUD, aggregations & data isolation
+│   ├── tests/                           # Pytest automated test suite (17 passed)
 │   │   ├── conftest.py                  # In-memory test SQLite session & client fixture
 │   │   ├── test_health.py               # Health endpoint test
-│   │   └── test_auth.py                 # 9 comprehensive security & auth tests
+│   │   ├── test_auth.py                 # 9 security & auth tests
+│   │   └── test_expenses.py             # 7 expense CRUD, validation & multi-user isolation tests
 │   └── main.py                          # FastAPI application factory, CORS & /health
 ├── lib/                                 # KharchaAI Flutter Frontend
 │   ├── core/
@@ -45,24 +53,29 @@ Karcha AI App/
 │   │       └── secure_storage_service.dart # Platform secure storage for JWT token
 │   ├── models/
 │   │   ├── user_model.dart              # User profile data model & JSON serialization
-│   │   └── auth_response.dart           # Token response wrapper
+│   │   ├── auth_response.dart           # Token response wrapper
+│   │   ├── expense_model.dart           # Expense model with PKR currency and date formatting
+│   │   └── expense_summary.dart         # Category and payment method aggregations
 │   ├── services/
-│   │   └── auth_service.dart            # Flutter authentication API consumer
+│   │   ├── auth_service.dart            # Flutter authentication API consumer
+│   │   └── expense_service.dart         # Flutter expense CRUD API consumer
 │   ├── widgets/
 │   │   ├── custom_button.dart           # Loading state & styled action button
-│   │   └── custom_text_field.dart       # Form field with validation & password visibility toggle
+│   │   ├── custom_text_field.dart       # Form field with validation & password visibility toggle
+│   │   └── add_expense_sheet.dart       # Modal bottom sheet for adding & editing expenses
 │   ├── screens/
 │   │   ├── splash_screen.dart           # Auto-checks token & navigates to Dashboard or Login
 │   │   ├── login_screen.dart            # Login form with validation & error banner
 │   │   ├── register_screen.dart         # Sign-up form with password confirmation
-│   │   ├── dashboard_screen.dart        # Financial overview, status card & session controls
+│   │   ├── dashboard_screen.dart        # Real-time financial dashboard with live expenses & FAB
 │   │   └── profile_screen.dart          # User account details & logout dialog
 │   └── main.dart                        # App bootstrap & theme setup
 ├── scripts/
-│   └── verify_api_integration.py        # Automated end-to-end 10-point integration check
+│   └── verify_api_integration.py        # Automated end-to-end 17-point live integration check
 ├── test/                                # Flutter Unit Tests
 │   ├── models_test.dart
-│   └── api_config_test.dart
+│   ├── api_config_test.dart
+│   └── expense_models_test.dart
 ├── .env.example                         # Template environment configuration
 ├── .env                                 # Active local development configuration
 ├── pubspec.yaml                         # Flutter dependencies manifest
