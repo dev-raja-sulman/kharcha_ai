@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KharchaAI — Interactive Web & API Testing Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0F766E;
+      --primary-dark: #115E59;
+      --primary-light: #14B8A6;
+      --primary-surface: #F0FDFA;
+      --background: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border: #E2E8F0;
+      --text-primary: #0F172A;
+      --text-secondary: #64748B;
+      --text-muted: #94A3B8;
+      --error: #EF4444;
+      --error-bg: #FEF2F2;
+      --success: #10B981;
+      --success-bg: #ECFDF5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--background);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    .top-bar {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 12px 18px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text-primary);
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--primary-surface);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .badge-links {
+      display: flex;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      background: var(--background);
+      transition: all 0.2s;
+    }
+
+    .badge:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      padding: 24px;
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+      color: var(--text-primary);
+    }
+
+    p.subtitle {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: var(--primary);
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      background: var(--background);
+      border-color: var(--text-secondary);
+    }
+
+    .btn-danger {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid #FECACA;
+    }
+
+    .btn-danger:hover {
+      background: #FEE2E2;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+      width: auto;
+    }
+
+    .banner {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .banner-error {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid #FECACA;
+    }
+
+    .banner-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #A7F3D0;
+    }
+
+    .switch-auth {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .switch-auth a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    /* Dashboard Specific */
+    .dashboard-header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 22px;
+      border-radius: 18px;
+      margin-bottom: 20px;
+    }
+
+    .dash-greeting {
+      font-size: 0.82rem;
+      opacity: 0.9;
+    }
+
+    .dash-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .dash-stat-label {
+      font-size: 0.78rem;
+      opacity: 0.8;
+      margin-top: 14px;
+    }
+
+    .dash-stat-val {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.7rem;
+      font-weight: 800;
+    }
+
+    .dash-cards {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .dash-card {
+      flex: 1;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: white;
+    }
+
+    .dash-card-title {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .dash-card-val {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-top: 4px;
+      color: var(--text-primary);
+    }
+
+    .category-chips {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+
+    .expense-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .expense-item {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      transition: border-color 0.2s;
+    }
+
+    .expense-item:hover {
+      border-color: var(--primary-light);
+    }
+
+    .exp-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .exp-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--primary-surface);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .exp-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+    }
+
+    .exp-sub {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .exp-right {
+      text-align: right;
+    }
+
+    .exp-amount {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--error);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .exp-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      justify-content: flex-end;
+    }
+
+    .action-btn {
+      background: transparent;
+      border: none;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .action-btn.del {
+      color: var(--error);
+    }
+
+    /* Modal Sheet */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="brand-logo">
+      <div class="brand-icon">💰</div>
+      <span>KharchaAI</span>
+    </div>
+    <div class="badge-links">
+      <a href="/docs" target="_blank" class="badge">📖 Swagger API Docs</a>
+      <a href="/health" target="_blank" class="badge">🩺 Health Status</a>
+    </div>
+  </div>
+
+  <div class="app-frame">
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="screen-login" class="screen active">
+      <h2>Welcome Back</h2>
+      <p class="subtitle">Log in to your KharchaAI account</p>
+
+      <div id="login-error" class="banner banner-error" style="display: none;"></div>
+      <div id="login-success" class="banner banner-success" style="display: none;"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="login-email" placeholder="name@example.com" required value="testuser@kharcha.ai">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" required value="Password123!">
+        </div>
+        <button type="submit" class="btn" style="margin-top: 10px;">Sign In</button>
+      </form>
+
+      <div class="switch-auth">
+        Don't have an account? <a onclick="showScreen('register')">Sign Up</a>
+      </div>
+    </div>
+
+    <!-- 2. REGISTER SCREEN -->
+    <div id="screen-register" class="screen">
+      <h2>Create Account</h2>
+      <p class="subtitle">Start tracking your personal expenses with AI</p>
+
+      <div id="reg-error" class="banner banner-error" style="display: none;"></div>
+
+      <form id="reg-form">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="reg-name" placeholder="Raja Sulman" required value="Test User">
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="reg-email" placeholder="name@example.com" required value="testuser@kharcha.ai">
+        </div>
+        <div class="form-group">
+          <label>Password (min 6 characters)</label>
+          <input type="password" id="reg-password" placeholder="••••••••" required minlength="6" value="Password123!">
+        </div>
+        <button type="submit" class="btn" style="margin-top: 10px;">Create Account</button>
+      </form>
+
+      <div class="switch-auth">
+        Already have an account? <a onclick="showScreen('login')">Sign In</a>
+      </div>
+    </div>
+
+    <!-- 3. DASHBOARD SCREEN -->
+    <div id="screen-dashboard" class="screen">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span style="font-weight: 700; color: var(--primary);">KharchaAI Mobile App</span>
+        <button class="btn btn-outline btn-sm" onclick="logout()">Log Out</button>
+      </div>
+
+      <div class="dashboard-header">
+        <div class="dash-greeting">Assalam-o-Alaikum,</div>
+        <div id="user-display-name" class="dash-name">User</div>
+        <div class="dash-stat-label">Total Recorded Expenses</div>
+        <div id="summary-total-amount" class="dash-stat-val">PKR 0.00</div>
+      </div>
+
+      <div class="dash-cards">
+        <div class="dash-card">
+          <div class="dash-card-title">Transactions</div>
+          <div id="summary-total-count" class="dash-card-val">0</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-title">Top Category</div>
+          <div id="summary-top-category" class="dash-card-val">—</div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-weight: 700; font-size: 1rem;">Recent Transactions</span>
+        <button class="btn btn-sm" onclick="openExpenseModal()">+ Add Kharcha</button>
+      </div>
+
+      <!-- Category Filter Chips -->
+      <div class="category-chips">
+        <div class="chip active" onclick="filterCategory('All', this)">All</div>
+        <div class="chip" onclick="filterCategory('Food', this)">Food</div>
+        <div class="chip" onclick="filterCategory('Transport', this)">Transport</div>
+        <div class="chip" onclick="filterCategory('Shopping', this)">Shopping</div>
+        <div class="chip" onclick="filterCategory('Bills', this)">Bills</div>
+        <div class="chip" onclick="filterCategory('Healthcare', this)">Healthcare</div>
+        <div class="chip" onclick="filterCategory('Entertainment', this)">Entertainment</div>
+        <div class="chip" onclick="filterCategory('Rent', this)">Rent</div>
+        <div class="chip" onclick="filterCategory('Travel', this)">Travel</div>
+      </div>
+
+      <div id="expense-list" class="expense-list">
+        <!-- Dynamically Populated -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Add / Edit Expense Modal -->
+  <div id="expense-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="modal-title" style="font-size: 1.15rem; font-weight: 700;">Add Expense</h3>
+        <button onclick="closeExpenseModal()" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <div id="modal-error" class="banner banner-error" style="display: none;"></div>
+
+      <form id="expense-form">
+        <input type="hidden" id="edit-expense-id">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="exp-title" placeholder="e.g. Test Grocery, Fuel" required value="Test Grocery">
+        </div>
+        <div class="form-group">
+          <label>Amount (PKR)</label>
+          <input type="number" step="0.01" min="0.01" id="exp-amount" placeholder="1500" required value="1500">
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="exp-category">
+              <option value="Food" selected>Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Bills">Bills</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Education">Education</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Rent">Rent</option>
+              <option value="Travel">Travel</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Method</label>
+            <select id="exp-payment">
+              <option value="Cash" selected>Cash</option>
+              <option value="Card">Card</option>
+              <option value="EasyPaisa">EasyPaisa</option>
+              <option value="JazzCash">JazzCash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="exp-date">
+        </div>
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <input type="text" id="exp-desc" placeholder="Weekly items, snacks, etc.">
+        </div>
+        <button type="submit" id="modal-submit-btn" class="btn" style="margin-top: 10px;">Save Expense</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let authToken = localStorage.getItem('kharcha_token');
+    let activeCategory = 'All';
+
+    // Set today's date in picker
+    document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+
+    function showScreen(screen) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-' + screen).classList.add('active');
+    }
+
+    // Auto-login check on page load
+    window.addEventListener('load', () => {
+      if (authToken) {
+        loadDashboard();
+      } else {
+        showScreen('login');
+      }
+    });
+
+    // 1. REGISTER
+    document.getElementById('reg-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('reg-error');
+      errBox.style.display = 'none';
+
+      const fullName = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+
+      try {
+        const res = await fetch('/api/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, full_name: fullName })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+
+        authToken = data.access_token;
+        localStorage.setItem('kharcha_token', authToken);
+        loadDashboard();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    });
+
+    // 2. LOGIN
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('login-error');
+      errBox.style.display = 'none';
+
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Login failed');
+
+        authToken = data.access_token;
+        localStorage.setItem('kharcha_token', authToken);
+        loadDashboard();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    });
+
+    // 3. LOAD DASHBOARD
+    async function loadDashboard() {
+      try {
+        const profileRes = await fetch('/api/v1/auth/me', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (profileRes.status === 401) return logout();
+        const user = await profileRes.json();
+        document.getElementById('user-display-name').textContent = user.full_name || user.email.split('@')[0];
+
+        // Load Summary
+        const summaryRes = await fetch('/api/v1/expenses/summary', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (summaryRes.ok) {
+          const sum = await summaryRes.json();
+          document.getElementById('summary-total-amount').textContent = 'PKR ' + Number(sum.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2});
+          document.getElementById('summary-total-count').textContent = sum.total_count + ' items';
+          document.getElementById('summary-top-category').textContent = sum.by_category.length > 0 ? sum.by_category[0].category : 'None';
+        }
+
+        // Load Expenses
+        loadExpenses();
+        showScreen('dashboard');
+      } catch (e) {
+        logout();
+      }
+    }
+
+    async function loadExpenses() {
+      const listEl = document.getElementById('expense-list');
+      let url = '/api/v1/expenses?limit=50';
+      if (activeCategory !== 'All') {
+        url += '&category=' + encodeURIComponent(activeCategory);
+      }
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      const data = await res.json();
+      listEl.innerHTML = '';
+
+      if (!data.items || data.items.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align: center; padding: 32px 16px; color: var(--text-secondary); font-size: 0.9rem;">
+            No expenses found. Click <b>+ Add Kharcha</b> to record one!
+          </div>
+        `;
+        return;
+      }
+
+      data.items.forEach(exp => {
+        const icon = getCategoryIcon(exp.category);
+        const item = document.createElement('div');
+        item.className = 'expense-item';
+        item.innerHTML = `
+          <div class="exp-left">
+            <div class="exp-icon">${icon}</div>
+            <div>
+              <div class="exp-title">${escapeHtml(exp.title)}</div>
+              <div class="exp-sub">${exp.expense_date} • ${escapeHtml(exp.payment_method)}</div>
+            </div>
+          </div>
+          <div class="exp-right">
+            <div class="exp-amount">PKR ${Number(exp.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+            <div class="exp-actions">
+              <button class="action-btn" onclick="openExpenseModal(${JSON.stringify(exp).replace(/"/g, '&quot;')})">Edit</button>
+              <button class="action-btn del" onclick="deleteExpense(${exp.id}, '${escapeHtml(exp.title)}')">Delete</button>
+            </div>
+          </div>
+        `;
+        listEl.appendChild(item);
+      });
+    }
+
+    function filterCategory(cat, el) {
+      activeCategory = cat;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      loadExpenses();
+    }
+
+    // Modal controls
+    function openExpenseModal(expense = null) {
+      document.getElementById('modal-error').style.display = 'none';
+      if (expense) {
+        document.getElementById('modal-title').textContent = 'Edit Expense';
+        document.getElementById('modal-submit-btn').textContent = 'Update Expense';
+        document.getElementById('edit-expense-id').value = expense.id;
+        document.getElementById('exp-title').value = expense.title;
+        document.getElementById('exp-amount').value = expense.amount;
+        document.getElementById('exp-category').value = expense.category;
+        document.getElementById('exp-payment').value = expense.payment_method;
+        document.getElementById('exp-date').value = expense.expense_date;
+        document.getElementById('exp-desc').value = expense.description || '';
+      } else {
+        document.getElementById('modal-title').textContent = 'Add Expense';
+        document.getElementById('modal-submit-btn').textContent = 'Save Expense';
+        document.getElementById('edit-expense-id').value = '';
+        document.getElementById('exp-title').value = 'Test Grocery';
+        document.getElementById('exp-amount').value = '1500';
+        document.getElementById('exp-category').value = 'Food';
+        document.getElementById('exp-payment').value = 'Cash';
+        document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('exp-desc').value = '';
+      }
+      document.getElementById('expense-modal').classList.add('active');
+    }
+
+    function closeExpenseModal() {
+      document.getElementById('expense-modal').classList.remove('active');
+    }
+
+    document.getElementById('expense-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('modal-error');
+      errBox.style.display = 'none';
+
+      const id = document.getElementById('edit-expense-id').value;
+      const title = document.getElementById('exp-title').value;
+      const amount = document.getElementById('exp-amount').value;
+      const category = document.getElementById('exp-category').value;
+      const payment_method = document.getElementById('exp-payment').value;
+      const expense_date = document.getElementById('exp-date').value;
+      const description = document.getElementById('exp-desc').value;
+
+      try {
+        let res;
+        if (id) {
+          // Edit
+          res = await fetch(`/api/v1/expenses/${id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ title, amount, category, payment_method, expense_date, description })
+          });
+        } else {
+          // Add
+          res = await fetch('/api/v1/expenses', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ title, amount, category, payment_method, expense_date, description })
+          });
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save expense');
+
+        closeExpenseModal();
+        loadDashboard();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'flex';
+      }
+    });
+
+    async function deleteExpense(id, title) {
+      if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+
+      try {
+        const res = await fetch(`/api/v1/expenses/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('Failed to delete expense');
+        loadDashboard();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('kharcha_token');
+      authToken = null;
+      showScreen('login');
+    }
+
+    function getCategoryIcon(cat) {
+      switch (cat) {
+        case 'Food': return '🍔';
+        case 'Transport': return '🚗';
+        case 'Shopping': return '🛍️';
+        case 'Bills': return '📄';
+        case 'Healthcare': return '💊';
+        case 'Education': return '🎓';
+        case 'Entertainment': return '🎬';
+        case 'Rent': return '🏠';
+        case 'Travel': return '✈️';
+        default: return '🏷️';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from app.api.api import api_router
 from app.core.config import settings
@@ -38,6 +40,23 @@ app.add_middleware(
 
 # Include v1 API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+    tags=["System"],
+    summary="KharchaAI Interactive Web App & Visual Testing Client"
+)
+def web_app():
+    """
+    Serves the interactive KharchaAI visual testing console directly in the browser.
+    """
+    html_path = os.path.join(os.path.dirname(__file__), "static", "web_app.html")
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>KharchaAI Backend is Running</h1><p>Visit <a href='/docs'>/docs</a> for Swagger API.</p>")
 
 
 @app.get(
