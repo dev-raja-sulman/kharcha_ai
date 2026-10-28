@@ -38,13 +38,17 @@ def main():
     # ---------------------------------------------------------
     # PHASE 1: AUTHENTICATION VERIFICATION
     # ---------------------------------------------------------
-    # 1. Health check
+    # 1. Health check (Verify both root /health and versioned /api/v1/health)
     try:
-        res = requests.get(f"{BASE_URL}/health", timeout=5)
-        healthy = (res.status_code == 200 and res.json().get("status") == "healthy")
-        log_step(1, "Server Health Check (GET /health)", healthy, f"Status: {res.status_code}, Response: {res.json()}")
+        res_root = requests.get(f"{BASE_URL}/health", timeout=5)
+        res_v1 = requests.get(f"{BASE_URL}/api/v1/health", timeout=5)
+        healthy = (
+            res_root.status_code == 200 and res_root.json().get("status") == "healthy" and
+            res_v1.status_code == 200 and res_v1.json().get("status") == "healthy"
+        )
+        log_step(1, "Server Health Check (GET /health & GET /api/v1/health)", healthy, f"Root: {res_root.status_code}, v1: {res_v1.status_code}, Response: {res_v1.json()}")
     except Exception as e:
-        log_step(1, "Server Health Check (GET /health)", False, f"Connection error: {e}")
+        log_step(1, "Server Health Check", False, f"Connection error: {e}")
 
     # 2. Registration input validation
     res_bad_email = requests.post(f"{BASE_URL}/api/v1/auth/register", json={

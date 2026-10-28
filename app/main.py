@@ -65,13 +65,30 @@ def web_app():
     tags=["System"],
     summary="Service Health Check"
 )
+@app.get(
+    "/api/v1/health",
+    response_model=HealthResponse,
+    tags=["System"],
+    summary="Service Health Check (v1)"
+)
 def health_check() -> HealthResponse:
     """
     Health check endpoint returning system status, version, and database mode.
+    Also verifies database connectivity.
     """
+    from sqlalchemy import text
+    from app.db.session import SessionLocal
+
+    db_ok = True
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+
     db_mode = "SQLite (Local Development)" if "sqlite" in settings.DATABASE_URL else "PostgreSQL (Production)"
     return HealthResponse(
-        status="healthy",
+        status="healthy" if db_ok else "degraded",
         service=settings.PROJECT_NAME,
         version=settings.VERSION,
         timestamp=datetime.now(timezone.utc),
