@@ -22,10 +22,10 @@ services:
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 1440
       - key: DATABASE_URL
-        sync: false
+        value: sqlite:///./kharcha_dev.db
       - key: RECEIPT_AI_PROVIDER
-        value: gemini
+        value: rule_based
       - key: GEMINI_API_KEY
-        sync: false
+        value: ""
       - key: GEMINI_MODEL
         value: gemini-1.5-flash
