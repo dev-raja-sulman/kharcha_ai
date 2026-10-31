@@ -5,6 +5,9 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-apk:
     name: Build Android Release APK
@@ -40,11 +43,22 @@ jobs:
           flutter build apk --release \
             --dart-define=ENV=production \
             --dart-define=API_URL=https://kharcha-ai-backend.onrender.com
+          cp build/app/outputs/flutter-apk/app-release.apk KharchaAI.apk
 
-      - name: Upload Release APK Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KharchaAI-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: KharchaAI.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Direct APK Download Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "KharchaAI Android Release v1.0.0"
+          body: "Direct download link for KharchaAI Android mobile application APK."
+          files: KharchaAI.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
