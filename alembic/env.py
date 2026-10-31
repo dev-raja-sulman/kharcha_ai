@@ -19,6 +19,8 @@ from app.models.budget import Budget  # noqa: F401
 from app.models.recurring_expense import RecurringExpense  # noqa: F401
 from app.models.income import Income, IncomeSource  # noqa: F401
 from app.models.saving_goal import SavingGoal, SavingContribution  # noqa: F401
+from app.models.bill import Bill  # noqa: F401
+
 
 
 # this is the Alembic Config object, which provides
