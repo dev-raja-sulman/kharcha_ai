@@ -52,5 +52,22 @@ class User(Base):
         passive_deletes=True
     )
 
+    # Relationship to user's incomes (cascades on delete)
+    incomes = relationship(
+        "Income",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    # Relationship to user's income sources (cascades on delete)
+    income_sources = relationship(
+        "IncomeSource",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email='{self.email}' full_name='{self.full_name}'>"
+
