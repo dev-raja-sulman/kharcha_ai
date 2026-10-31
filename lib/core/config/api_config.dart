@@ -74,6 +74,20 @@ class ApiConfig {
   static String get reportsCsvExportUrl => '$baseUrl/api/v1/reports/export/csv';
   static String get reportsPdfExportUrl => '$baseUrl/api/v1/reports/export/pdf';
 
+  // Phase 6 Endpoints
+  static String get incomesUrl => '$baseUrl/api/v1/incomes';
+  static String get incomeSummaryUrl => '$baseUrl/api/v1/incomes/summary';
+  static String get incomeSourcesUrl => '$baseUrl/api/v1/income-sources';
+  static String get cashflowUrl => '$baseUrl/api/v1/analytics/cashflow';
+  static String get savingGoalsUrl => '$baseUrl/api/v1/saving-goals';
+  static String get billsUrl => '$baseUrl/api/v1/bills';
+  static String get billsUpcomingUrl => '$baseUrl/api/v1/bills/upcoming';
+  static String get billsSummaryUrl => '$baseUrl/api/v1/bills/summary';
+  static String get advisorOverviewUrl => '$baseUrl/api/v1/financial-advisor/overview';
+  static String get advisorInsightsUrl => '$baseUrl/api/v1/financial-advisor/insights';
+  static String get advisorChatUrl => '$baseUrl/api/v1/financial-advisor/chat';
+
+
   // Network Timeout Configurations
   static const Duration connectTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 10);
