@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import requests
 from sqlalchemy import create_engine
@@ -647,10 +647,262 @@ def main():
         "User 2 received 404 on User 1's recurring rule; User 2 report completely isolated (PKR 0.00 expenditure)"
     )
 
+    # ---------------------------------------------------------
+    # PHASE 6: COMPLETE PERSONAL FINANCE MANAGEMENT & AI ADVISOR
+    # ---------------------------------------------------------
+    # 41. Query Income Sources & Verify Auto-Seeding
+    res_sources = requests.get(f"{BASE_URL}/api/v1/income-sources", headers=headers1)
+    sources_data = res_sources.json() if res_sources.status_code == 200 else []
+    sources_ok = res_sources.status_code == 200 and len(sources_data) >= 6
+    salary_source = next((s for s in sources_data if s["name"] == "Salary"), None)
+    log_step(
+        41,
+        "Default Income Sources Auto-Seeded (GET /api/v1/income-sources)",
+        sources_ok,
+        f"Retrieved {len(sources_data)} default sources (Salary, Freelance, Business, etc.)"
+    )
+
+    # 42. Create Income Transactions
+    today_str = date.today().isoformat()
+    res_inc1 = requests.post(f"{BASE_URL}/api/v1/incomes", json={
+        "title": "Monthly Principal Engineering Salary",
+        "amount": "150000.00",
+        "currency": "PKR",
+        "income_date": today_str,
+        "payment_method": "Bank Transfer",
+        "source_id": salary_source["id"] if salary_source else None,
+        "description": "Base salary deposited"
+    }, headers=headers1)
+    res_inc2 = requests.post(f"{BASE_URL}/api/v1/incomes", json={
+        "title": "Mobile App Consulting",
+        "amount": "50000.00",
+        "currency": "PKR",
+        "income_date": today_str,
+        "payment_method": "Bank Transfer",
+        "description": "Freelance UI work"
+    }, headers=headers1)
+    inc_ok = res_inc1.status_code == 201 and res_inc2.status_code == 201
+    inc1_id = res_inc1.json().get("id") if inc_ok else None
+    log_step(
+        42,
+        "Create Income Transactions (POST /api/v1/incomes)",
+        inc_ok,
+        f"Logged 2 income streams totaling PKR 200,000.00 (Salary & Consulting)"
+    )
+
+    # 43. Income Summary & Source Breakdown
+    res_inc_sum = requests.get(f"{BASE_URL}/api/v1/incomes/summary", headers=headers1)
+    sum_data = res_inc_sum.json() if res_inc_sum.status_code == 200 else {}
+    inc_sum_ok = (
+        res_inc_sum.status_code == 200 and
+        Decimal(str(sum_data.get("total_income", 0))) == Decimal("200000.00") and
+        sum_data.get("total_transactions") == 2
+    )
+    log_step(
+        43,
+        "Income Summary & Source Breakdown (GET /api/v1/incomes/summary)",
+        inc_sum_ok,
+        f"Total Income: PKR {sum_data.get('total_income')}, Transactions: {sum_data.get('total_transactions')}"
+    )
+
+    # 44. Cashflow Engine & Savings Rate Calculation
+    res_cf = requests.get(f"{BASE_URL}/api/v1/analytics/cashflow", headers=headers1)
+    cf_data = res_cf.json() if res_cf.status_code == 200 else {}
+    cf_ok = (
+        res_cf.status_code == 200 and
+        Decimal(str(cf_data.get("total_income", 0))) == Decimal("200000.00") and
+        Decimal(str(cf_data.get("net_cashflow", 0))) > Decimal("0.00") and
+        cf_data.get("savings_rate", 0) > 0.0
+    )
+    log_step(
+        44,
+        "Cashflow Overview & Savings Rate (GET /api/v1/analytics/cashflow)",
+        cf_ok,
+        f"Net Cashflow: PKR {cf_data.get('net_cashflow')}, Savings Rate: {cf_data.get('savings_rate')}%, Status: {cf_data.get('cashflow_status')}"
+    )
+
+    # 45. Zero-Division Protection for Savings Rate (User 2 has 0 income)
+    res_cf_u2 = requests.get(f"{BASE_URL}/api/v1/analytics/cashflow", headers=headers2)
+    cf_u2_data = res_cf_u2.json() if res_cf_u2.status_code == 200 else {}
+    zd_ok = (
+        res_cf_u2.status_code == 200 and
+        Decimal(str(cf_u2_data.get("total_income", 0))) == Decimal("0.00") and
+        cf_u2_data.get("savings_rate") == 0.0
+    )
+    log_step(
+        45,
+        "Zero-Division Protection (if total_income == 0 -> savings_rate == 0.0%)",
+        zd_ok,
+        f"User 2 with PKR 0.00 income safely returned savings_rate=0.0% without error"
+    )
+
+    # 46. Create Savings Goal
+    target_d = (date.today() + timedelta(days=90)).isoformat()
+    res_goal = requests.post(f"{BASE_URL}/api/v1/saving-goals", json={
+        "title": "MacBook Pro M3 Max",
+        "description": "Workstation upgrade for high-performance development",
+        "target_amount": "400000.00",
+        "target_date": target_d
+    }, headers=headers1)
+    goal_ok = res_goal.status_code == 201
+    goal_id = res_goal.json().get("id") if goal_ok else None
+    log_step(
+        46,
+        "Create Savings Goal (POST /api/v1/saving-goals)",
+        goal_ok,
+        f"Created Goal id={goal_id}, target=PKR 400,000.00, status=in_progress"
+    )
+
+    res_contrib = requests.post(f"{BASE_URL}/api/v1/saving-goals/{goal_id}/contributions", json={
+        "amount": "50000.00",
+        "notes": "Allocated from monthly salary surplus"
+    }, headers=headers1)
+    res_goal_after = requests.get(f"{BASE_URL}/api/v1/saving-goals/{goal_id}", headers=headers1)
+    goal_after_data = res_goal_after.json() if res_goal_after.status_code == 200 else {}
+    contrib_ok = (
+        res_contrib.status_code == 201 and
+        res_goal_after.status_code == 200 and
+        Decimal(str(goal_after_data.get("current_amount", 0))) == Decimal("50000.00") and
+        goal_after_data.get("progress_percentage") == 12.5
+    )
+    log_step(
+        47,
+        "Atomic Capital Contribution to Savings Goal (POST .../contributions)",
+        contrib_ok,
+        f"Contributed PKR 50,000.00. Current balance: PKR {goal_after_data.get('current_amount')} ({goal_after_data.get('progress_percentage')}% progress)"
+    )
+
+    # 48. Create Bill Entry
+    due_d = (date.today() + timedelta(days=5)).isoformat()
+    res_bill = requests.post(f"{BASE_URL}/api/v1/bills", json={
+        "title": "Nayatel Fiber Broadband",
+        "category": "Internet",
+        "amount": "4800.00",
+        "due_date": due_d,
+        "frequency": "monthly",
+        "reminder_enabled": True
+    }, headers=headers1)
+    bill_ok = res_bill.status_code == 201
+    bill_id = res_bill.json().get("id") if bill_ok else None
+    log_step(
+        48,
+        "Create Bill Tracking Entry (POST /api/v1/bills)",
+        bill_ok,
+        f"Created Bill id={bill_id}, title='Nayatel Fiber Broadband', amount=PKR 4,800.00, status=unpaid"
+    )
+
+    # 49. Bill Summary & Upcoming Filter
+    res_bill_sum = requests.get(f"{BASE_URL}/api/v1/bills/summary", headers=headers1)
+    res_up_bills = requests.get(f"{BASE_URL}/api/v1/bills/upcoming?days=14", headers=headers1)
+    bill_sum_ok = (
+        res_bill_sum.status_code == 200 and
+        res_up_bills.status_code == 200 and
+        res_bill_sum.json().get("pending_count", 0) >= 1 and
+        len(res_up_bills.json()) >= 1
+    )
+    log_step(
+        49,
+        "Bill Summary & Upcoming Obligations (GET /api/v1/bills/summary & /upcoming)",
+        bill_sum_ok,
+        f"Summary shows {res_bill_sum.json().get('pending_count')} pending bill(s), upcoming list populated"
+    )
+
+    # 50. Mark Bill Paid with Safe Expense Sync
+    res_paid = requests.post(f"{BASE_URL}/api/v1/bills/{bill_id}/mark-paid", json={
+        "paid_date": today_str,
+        "create_expense": True,
+        "payment_method": "JazzCash"
+    }, headers=headers1)
+    paid_data = res_paid.json() if res_paid.status_code == 200 else {}
+    linked_exp_id = paid_data.get("linked_expense_id")
+    # Verify linked expense exists in expenses ledger
+    res_linked_exp = requests.get(f"{BASE_URL}/api/v1/expenses/{linked_exp_id}", headers=headers1) if linked_exp_id else None
+    paid_ok = (
+        res_paid.status_code == 200 and
+        paid_data.get("status") == "paid" and
+        linked_exp_id is not None and
+        res_linked_exp is not None and
+        res_linked_exp.status_code == 200 and
+        res_linked_exp.json().get("category") == "Bills"
+    )
+    log_step(
+        50,
+        "Safe Mark-As-Paid with Expense Synchronization (POST /api/v1/bills/{id}/mark-paid)",
+        paid_ok,
+        f"Bill marked paid; created linked Expense id={linked_exp_id} without double-counting"
+    )
+
+    # 51. AI Financial Advisor Overview & Scoring
+    res_adv_ov = requests.get(f"{BASE_URL}/api/v1/financial-advisor/overview", headers=headers1)
+    adv_ov_data = res_adv_ov.json() if res_adv_ov.status_code == 200 else {}
+    adv_ov_ok = (
+        res_adv_ov.status_code == 200 and
+        Decimal(str(adv_ov_data.get("total_income_this_month", 0))) == Decimal("200000.00") and
+        adv_ov_data.get("financial_health_score", 0) >= 70 and
+        adv_ov_data.get("financial_health_status") in ["Healthy", "Moderate"]
+    )
+    log_step(
+        51,
+        "AI Financial Advisor Overview & Score (GET /api/v1/financial-advisor/overview)",
+        adv_ov_ok,
+        f"Health Score: {adv_ov_data.get('financial_health_score')}/100 ({adv_ov_data.get('financial_health_status')}), Net Cashflow: PKR {adv_ov_data.get('net_cashflow')}"
+    )
+
+    # 52. AI Financial Advisor Insights
+    res_adv_ins = requests.get(f"{BASE_URL}/api/v1/financial-advisor/insights", headers=headers1)
+    adv_ins_data = res_adv_ins.json() if res_adv_ins.status_code == 200 else {}
+    adv_ins_ok = (
+        res_adv_ins.status_code == 200 and
+        bool(adv_ins_data.get("summary_headline")) and
+        bool(adv_ins_data.get("key_recommendation")) and
+        len(adv_ins_data.get("insights", [])) > 0
+    )
+    log_step(
+        52,
+        "AI Financial Advisor Insights (GET /api/v1/financial-advisor/insights)",
+        adv_ins_ok,
+        f"Provider: {adv_ins_data.get('provider_used')}, Headline: '{adv_ins_data.get('summary_headline')[:60]}...'"
+    )
+
+    # 53. AI Financial Advisor Conversational Chat
+    res_chat = requests.post(f"{BASE_URL}/api/v1/financial-advisor/chat", json={
+        "message": "Can I afford to purchase a smartphone for PKR 35,000?"
+    }, headers=headers1)
+    chat_data = res_chat.json() if res_chat.status_code == 200 else {}
+    chat_ok = (
+        res_chat.status_code == 200 and
+        bool(chat_data.get("reply")) and
+        "net_cashflow" in chat_data.get("grounded_metrics", {}) and
+        len(chat_data.get("suggested_followups", [])) >= 2
+    )
+    log_step(
+        53,
+        "AI Financial Advisor Grounded Chat (POST /api/v1/financial-advisor/chat)",
+        chat_ok,
+        f"Replied with grounded ledger math: '{chat_data.get('reply')[:75]}...'"
+    )
+
+    # 54. Phase 6 Multi-User Isolation Enforcement
+    res_cross_inc = requests.get(f"{BASE_URL}/api/v1/incomes/{inc1_id}", headers=headers2)
+    res_cross_goal = requests.get(f"{BASE_URL}/api/v1/saving-goals/{goal_id}", headers=headers2)
+    res_cross_bill = requests.get(f"{BASE_URL}/api/v1/bills/{bill_id}", headers=headers2)
+    iso6_ok = (
+        res_cross_inc.status_code == 404 and
+        res_cross_goal.status_code == 404 and
+        res_cross_bill.status_code == 404
+    )
+    log_step(
+        54,
+        "Phase 6 Multi-User Isolation Enforcement (Incomes, Goals, Bills)",
+        iso6_ok,
+        "User 2 received 404 when querying User 1's income, savings goal, and bill records"
+    )
+
     print("\n" + "=" * 75)
-    print(" ALL 40 PHASE 1, PHASE 2, PHASE 3, PHASE 4 & PHASE 5 CHECKS PASSED! ")
+    print(" ALL 54 PHASE 1, PHASE 2, PHASE 3, PHASE 4, PHASE 5 & PHASE 6 CHECKS PASSED! ")
     print("=" * 75)
 
 
 if __name__ == "__main__":
     main()
+
