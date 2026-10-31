@@ -116,7 +116,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Card(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: AppColors.cardBorder),
+                        side: const BorderSide(color: AppColors.cardBorder),
                       ),
                       elevation: 0,
                       child: Padding(
@@ -186,7 +186,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         margin: const EdgeInsets.only(bottom: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: AppColors.cardBorder),
+                          side: const BorderSide(color: AppColors.cardBorder),
                         ),
                         elevation: 0,
                         child: Padding(

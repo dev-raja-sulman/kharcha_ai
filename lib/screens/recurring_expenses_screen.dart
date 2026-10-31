@@ -359,7 +359,7 @@ class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
                           _loadRules();
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(content: Text('Error saving rule: $e'), backgroundColor: AppColors.error),
                             );
                           }

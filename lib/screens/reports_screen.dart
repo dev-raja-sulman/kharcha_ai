@@ -230,6 +230,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ],
                   ),
                 ],
+
+                // Category Filter Chips
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _categories.map((cat) {
+                      final isSelected = (_selectedCategory == null && cat == 'All') || _selectedCategory == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(cat),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary.withOpacity(0.15),
+                          checkmarkColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (val) {
+                            setState(() {
+                              _selectedCategory = cat == 'All' ? null : cat;
+                            });
+                            _loadReport();
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ),
           ),

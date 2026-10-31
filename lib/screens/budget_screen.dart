@@ -178,7 +178,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       month: _selectedMonth,
                       year: _selectedYear,
                     );
-                    if (!mounted) return;
+                    if (!mounted || !ctx.mounted) return;
                     Navigator.pop(ctx);
                     _loadBudgets();
                   } on ApiException catch (e) {
@@ -279,7 +279,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         margin: const EdgeInsets.only(bottom: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: AppColors.cardBorder),
+                          side: const BorderSide(color: AppColors.cardBorder),
                         ),
                         elevation: 0,
                         child: Padding(

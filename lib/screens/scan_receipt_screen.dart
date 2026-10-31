@@ -155,7 +155,7 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
     });
 
     try {
-      final expense = await widget.expenseService.createExpense(
+      final ExpenseModel expense = await widget.expenseService.createExpense(
         title: _merchantController.text.trim(),
         amount: parsedAmount,
         category: _selectedCategory,
@@ -329,7 +329,7 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppColors.border),
+              side: const BorderSide(color: AppColors.border),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -496,7 +496,51 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            if (_selectedImageBytes != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        _selectedImageBytes!,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedFilename ?? 'Receipt Image',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${(_selectedImageBytes!.lengthInBytes / 1024).toStringAsFixed(1)} KB',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             if (_errorMessage != null) ...[
               Container(

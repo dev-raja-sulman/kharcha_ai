@@ -87,9 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
 
       setState(() {
-        if (_currentUser == null) {
-          _currentUser = futures[0] as UserModel;
-        }
+        _currentUser ??= futures[0] as UserModel;
         _summary = futures[1] as ExpenseSummaryModel;
         _expenses = futures[2] as List<ExpenseModel>;
       });
@@ -130,6 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (confirmed == true && mounted) {
       try {
         await _expenseService.deleteExpense(expense.id);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Expense deleted successfully'),
@@ -139,6 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         _loadDashboardData();
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete: ${e.toString()}'),

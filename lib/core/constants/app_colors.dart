@@ -4,6 +4,7 @@ class AppColors {
   // Brand Primary & Accents
   static const Color primary = Color(0xFF0F766E);       // Deep Emerald / Teal
   static const Color primaryLight = Color(0xFF14B8A6);  // Mint Accent
+  static const Color secondary = Color(0xFF14B8A6);     // Secondary brand color
   static const Color primaryDark = Color(0xFF115E59);
   static const Color primarySurface = Color(0xFFF0FDFA);
 
@@ -11,6 +12,7 @@ class AppColors {
   static const Color background = Color(0xFFF8FAFC);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color border = Color(0xFFE2E8F0);        // Border color alias
 
   // Text Hierarchy
   static const Color textPrimary = Color(0xFF0F172A);
@@ -22,6 +24,7 @@ class AppColors {
   static const Color successBg = Color(0xFFECFDF5);
   static const Color error = Color(0xFFEF4444);
   static const Color errorBg = Color(0xFFFEF2F2);
+  static const Color errorSurface = Color(0xFFFEF2F2);  // Error surface alias
   static const Color warning = Color(0xFFF59E0B);
   static const Color warningBg = Color(0xFFFFFBEB);
 }
