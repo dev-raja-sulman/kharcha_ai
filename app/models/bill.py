@@ -58,6 +58,7 @@ class Bill(Base):
     title = Column(String(150), nullable=False)
     category = Column(String(50), nullable=False, default="Other")
     amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(10), nullable=False, default="PKR")
     due_date = Column(Date, nullable=False, index=True)
     status = Column(String(20), nullable=False, default="unpaid", index=True)  # unpaid, paid, overdue
     frequency = Column(String(20), nullable=False, default="one_time")  # one_time, monthly, quarterly, yearly

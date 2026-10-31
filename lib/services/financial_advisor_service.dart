@@ -50,4 +50,7 @@ class FinancialAdvisorService {
       throw ApiException(message: 'Advisor chat failed: ${e.toString()}');
     }
   }
+
+  /// Alias for sendChatMessage
+  Future<AdvisorChatResponseModel> sendChatMessage(String message) => sendMessage(message);
 }

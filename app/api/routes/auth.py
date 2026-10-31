@@ -7,9 +7,11 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
     TokenResponse,
+    UserCurrencyUpdateRequest,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
+    UserUpdateRequest,
 )
 from app.services.auth_service import AuthService
 
@@ -85,3 +87,54 @@ def get_current_user_profile(
     Requires a valid JWT Bearer token in the Authorization header.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update current user profile and preferences"
+)
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update current user profile and preferences"
+)
+def update_current_user_profile(
+    req: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """
+    Update profile attributes such as full_name or preferred_currency.
+    """
+    updated_user = AuthService.update_user_profile(
+        db=db,
+        user=current_user,
+        full_name=req.full_name,
+        preferred_currency=req.preferred_currency
+    )
+    return UserResponse.model_validate(updated_user)
+
+
+@router.put(
+    "/currency",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update preferred display currency"
+)
+def update_currency_preference(
+    req: UserCurrencyUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """
+    Save user's preferred display currency (e.g. PKR, USD, EUR, etc.).
+    """
+    updated_user = AuthService.update_user_currency(
+        db=db,
+        user=current_user,
+        currency=req.currency
+    )
+    return UserResponse.model_validate(updated_user)

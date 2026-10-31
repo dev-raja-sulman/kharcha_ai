@@ -41,6 +41,8 @@ class RecurringExpenseModel {
   String get formattedAmount => 'PKR ${amount.toStringAsFixed(2)}';
   String get formattedFrequency =>
       frequency.isNotEmpty ? '${frequency[0].toUpperCase()}${frequency.substring(1)}' : '';
+  String get formattedNextDate =>
+      '${nextScheduledDate.year}-${nextScheduledDate.month.toString().padLeft(2, '0')}-${nextScheduledDate.day.toString().padLeft(2, '0')}';
 
   factory RecurringExpenseModel.fromJson(Map<String, dynamic> json) {
     return RecurringExpenseModel(

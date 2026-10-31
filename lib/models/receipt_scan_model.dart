@@ -96,4 +96,6 @@ class ReceiptScanModel {
       providerUsed: json['provider_used']?.toString() ?? 'gemini',
     );
   }
+
+  double get confidenceScore => confidence;
 }

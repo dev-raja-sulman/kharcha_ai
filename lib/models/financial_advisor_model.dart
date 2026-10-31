@@ -40,6 +40,10 @@ class AdvisorOverviewModel {
       financialHealthStatus: json['financial_health_status'] as String? ?? 'Moderate',
     );
   }
+
+  double get totalIncome => totalIncomeThisMonth;
+  double get totalExpenses => totalExpensesThisMonth;
+  double get netSavings => netCashflow;
 }
 
 class AdvisorInsightItemModel {

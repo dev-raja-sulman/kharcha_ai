@@ -125,4 +125,7 @@ class BillSummaryModel {
       upcomingBills: upcomingList.map((item) => BillModel.fromJson(item as Map<String, dynamic>)).toList(),
     );
   }
+
+  double get unpaidAmount => totalPendingAmount;
+  int get unpaidCount => pendingCount;
 }

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +24,36 @@ class UserRegisterRequest(BaseModel):
         max_length=100,
         description="Optional full name or display name"
     )
+    preferred_currency: Optional[str] = Field(
+        "PKR",
+        min_length=3,
+        max_length=10,
+        description="User preferred display currency (defaults to PKR)"
+    )
+
+
+class UserCurrencyUpdateRequest(BaseModel):
+    """
+    Schema for updating user preferred display currency.
+    """
+    currency: Optional[str] = Field(None, min_length=3, max_length=10, description="ISO Currency code, e.g. PKR, USD, EUR")
+    preferred_currency: Optional[str] = Field(None, min_length=3, max_length=10, description="Alias for currency")
+
+    @model_validator(mode="after")
+    def validate_currency_field(self) -> "UserCurrencyUpdateRequest":
+        selected = self.currency or self.preferred_currency
+        if not selected:
+            raise ValueError("Either 'currency' or 'preferred_currency' must be provided")
+        self.currency = selected
+        return self
+
+
+class UserUpdateRequest(BaseModel):
+    """
+    Schema for updating user profile settings.
+    """
+    full_name: Optional[str] = Field(None, max_length=100)
+    preferred_currency: Optional[str] = Field(None, min_length=3, max_length=10)
 
 
 class UserLoginRequest(BaseModel):
@@ -47,6 +77,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_active: bool
+    preferred_currency: str = "PKR"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

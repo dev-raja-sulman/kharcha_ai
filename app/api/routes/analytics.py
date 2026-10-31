@@ -72,6 +72,7 @@ async def get_spending_insights(
 def get_cashflow_overview(
     month: Optional[int] = Query(None, ge=1, le=12, description="Target month (1-12)"),
     year: Optional[int] = Query(None, ge=2020, le=2100, description="Target year"),
+    currency: Optional[str] = Query(None, description="Target display currency"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> CashflowOverviewResponse:
@@ -80,6 +81,7 @@ def get_cashflow_overview(
         db=db,
         user_id=current_user.id,
         month=month,
-        year=year
+        year=year,
+        target_currency=currency or current_user.preferred_currency
     )
 

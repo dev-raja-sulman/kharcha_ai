@@ -119,4 +119,8 @@ class SpendingAnalyticsModel {
           json['month_comparison'] as Map<String, dynamic>),
     );
   }
+
+  double get momChangePercentage => monthComparison.percentageChange;
+  double get dailyAverage => averageDailySpending;
+  int get transactionCount => totalTransactions;
 }

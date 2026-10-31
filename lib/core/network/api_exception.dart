@@ -11,6 +11,8 @@ class ApiException implements Exception {
     this.details,
   });
 
+  factory ApiException.fromDio(DioException error) => ApiException.fromDioError(error);
+
   factory ApiException.fromDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:

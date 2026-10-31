@@ -24,6 +24,7 @@ class CashflowOverviewResponse(BaseModel):
     health_status: str = Field(..., description="'surplus' | 'deficit' | 'balanced' | 'no_data'")
     health_title: str
     health_summary: str
+    by_currency: Optional[dict] = None
     daily_trends: List[DailyCashflowPoint]
 
     model_config = ConfigDict(from_attributes=True)

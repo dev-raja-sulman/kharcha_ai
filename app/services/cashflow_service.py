@@ -2,13 +2,15 @@ from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
 from app.models.expense import Expense
 from app.models.income import Income
+from app.models.user import User
 from app.schemas.cashflow import CashflowOverviewResponse, DailyCashflowPoint
+from app.services.exchange_rate_service import ExchangeRateService
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ class CashflowService:
     """
     Computes cashflow metrics, savings rate, financial health analysis,
     and daily cashflow trend points for KharchaAI financial dashboard.
+    Enforces multi-currency accuracy and protects against mixing unaligned currencies.
     """
 
     @classmethod
@@ -25,11 +28,20 @@ class CashflowService:
         db: Session,
         user_id: int,
         month: Optional[int] = None,
-        year: Optional[int] = None
+        year: Optional[int] = None,
+        target_currency: Optional[str] = None
     ) -> CashflowOverviewResponse:
         today = date.today()
         target_month = month if month is not None else today.month
         target_year = year if year is not None else today.year
+
+        # Determine target display currency from user preference if not explicitly provided
+        user = db.query(User).filter(User.id == user_id).first()
+        display_currency = (
+            target_currency.strip().upper()
+            if target_currency
+            else (user.preferred_currency if user and user.preferred_currency else "PKR")
+        )
 
         _, last_day = monthrange(target_year, target_month)
         start_date = date(target_year, target_month, 1)
@@ -57,9 +69,66 @@ class CashflowService:
             Budget.category.is_(None)
         ).first()
 
-        # 4. Accurate Decimal summations
-        total_income = sum((Decimal(str(i.amount)) for i in incomes), Decimal("0.00"))
-        total_expenses = sum((Decimal(str(e.amount)) for e in expenses), Decimal("0.00"))
+        # 4. Multi-currency tracking and conversion
+        total_income = Decimal("0.00")
+        total_expenses = Decimal("0.00")
+        by_currency: Dict[str, Dict[str, Decimal]] = {
+            "incomes": {},
+            "expenses": {}
+        }
+
+        # Daily trends grouping
+        daily_map: Dict[int, Dict[str, Decimal]] = {
+            d: {"income": Decimal("0.00"), "expense": Decimal("0.00")}
+            for d in range(1, last_day + 1)
+        }
+
+        # Process Incomes
+        for inc in incomes:
+            raw_amt = Decimal(str(inc.amount))
+            i_curr = (inc.currency or "PKR").upper().strip()
+            by_currency["incomes"][i_curr] = by_currency["incomes"].get(i_curr, Decimal("0.00")) + raw_amt
+
+            if i_curr == display_currency:
+                converted_amt = raw_amt
+            else:
+                converted = ExchangeRateService.convert(
+                    db=db,
+                    amount=raw_amt,
+                    from_currency=i_curr,
+                    to_currency=display_currency,
+                    effective_on=inc.income_date
+                )
+                converted_amt = converted if converted is not None else Decimal("0.00")
+
+            total_income += converted_amt
+            day_num = inc.income_date.day
+            if day_num in daily_map:
+                daily_map[day_num]["income"] += converted_amt
+
+        # Process Expenses
+        for exp in expenses:
+            raw_amt = Decimal(str(exp.amount))
+            e_curr = (exp.currency or "PKR").upper().strip()
+            by_currency["expenses"][e_curr] = by_currency["expenses"].get(e_curr, Decimal("0.00")) + raw_amt
+
+            if e_curr == display_currency:
+                converted_amt = raw_amt
+            else:
+                converted = ExchangeRateService.convert(
+                    db=db,
+                    amount=raw_amt,
+                    from_currency=e_curr,
+                    to_currency=display_currency,
+                    effective_on=exp.expense_date
+                )
+                converted_amt = converted if converted is not None else Decimal("0.00")
+
+            total_expenses += converted_amt
+            day_num = exp.expense_date.day
+            if day_num in daily_map:
+                daily_map[day_num]["expense"] += converted_amt
+
         net_cashflow = total_income - total_expenses
 
         # 5. Calculate Savings Rate safely (guarded against zero division)
@@ -76,7 +145,20 @@ class CashflowService:
         budget_used_percentage: Optional[float] = None
 
         if overall_budget:
-            total_budget = Decimal(str(overall_budget.amount))
+            b_raw = Decimal(str(overall_budget.amount))
+            b_curr = (getattr(overall_budget, "currency", "PKR") or "PKR").upper().strip()
+            if b_curr == display_currency:
+                total_budget = b_raw
+            else:
+                converted_b = ExchangeRateService.convert(
+                    db=db,
+                    amount=b_raw,
+                    from_currency=b_curr,
+                    to_currency=display_currency,
+                    effective_on=overall_budget.start_date
+                )
+                total_budget = converted_b if converted_b is not None else b_raw
+
             remaining_budget = total_budget - total_expenses
             budget_used_percentage = (
                 round((float(total_expenses) / float(total_budget) * 100.0), 2)
@@ -96,7 +178,7 @@ class CashflowService:
             health_status = "surplus"
             health_title = "Positive Cashflow Surplus"
             health_summary = (
-                f"Great financial health! You have a net positive surplus of PKR {net_cashflow:,.2f} "
+                f"Great financial health! You have a net positive surplus of {display_currency} {net_cashflow:,.2f} "
                 f"with a savings rate of {savings_rate:.1f}% this month."
             )
         elif net_cashflow < Decimal("0.00"):
@@ -104,29 +186,18 @@ class CashflowService:
             health_title = "Operating at a Deficit"
             deficit_amount = abs(net_cashflow)
             health_summary = (
-                f"Warning: Your recorded expenses exceed your income by PKR {deficit_amount:,.2f}. "
+                f"Your expenses exceed your income by {display_currency} {deficit_amount:,.0f} this month. "
                 "Review discretionary purchases and recurring bills to regain balance."
             )
         else:
             health_status = "balanced"
             health_title = "Balanced Break-Even"
             health_summary = (
-                "Your recorded monthly income matches your expenses exactly (PKR 0.00 net). "
+                f"Your recorded monthly income matches your expenses exactly ({display_currency} 0.00 net). "
                 "Consider setting a savings goal to start building wealth."
             )
 
-        # 8. Daily Trends (Group by day)
-        daily_map = {d: {"income": Decimal("0.00"), "expense": Decimal("0.00")} for d in range(1, last_day + 1)}
-        for inc in incomes:
-            day_num = inc.income_date.day
-            if day_num in daily_map:
-                daily_map[day_num]["income"] += Decimal(str(inc.amount))
-
-        for exp in expenses:
-            day_num = exp.expense_date.day
-            if day_num in daily_map:
-                daily_map[day_num]["expense"] += Decimal(str(exp.amount))
-
+        # 8. Daily Trends
         daily_trends: List[DailyCashflowPoint] = []
         for day_num in sorted(daily_map.keys()):
             d_income = daily_map[day_num]["income"]
@@ -140,10 +211,16 @@ class CashflowService:
                 net=d_net
             ))
 
+        # Format by_currency serializable dictionary
+        by_currency_serialized = {
+            "incomes": {k: float(v) for k, v in by_currency["incomes"].items()},
+            "expenses": {k: float(v) for k, v in by_currency["expenses"].items()},
+        }
+
         return CashflowOverviewResponse(
             month=target_month,
             year=target_year,
-            currency="PKR",
+            currency=display_currency,
             total_income=total_income,
             total_expenses=total_expenses,
             net_cashflow=net_cashflow,
@@ -154,5 +231,6 @@ class CashflowService:
             health_status=health_status,
             health_title=health_title,
             health_summary=health_summary,
+            by_currency=by_currency_serialized,
             daily_trends=daily_trends
         )

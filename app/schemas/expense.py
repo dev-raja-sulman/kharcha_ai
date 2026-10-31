@@ -59,6 +59,7 @@ class ExpenseCreateRequest(BaseModel):
         description="Expense amount, must be greater than zero"
     )
     category: str = Field(..., description="Expense category from standard category list")
+    currency: str = Field("PKR", min_length=3, max_length=10, description="ISO currency code")
     description: Optional[str] = Field(None, max_length=500, description="Optional notes or details")
     expense_date: Optional[date] = Field(default_factory=date.today, description="Date expense occurred")
     payment_method: Optional[str] = Field("Cash", max_length=50, description="Payment method used")
@@ -86,6 +87,7 @@ class ExpenseUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=150)
     amount: Optional[Decimal] = Field(None, gt=Decimal("0.00"), decimal_places=2, max_digits=12)
     category: Optional[str] = None
+    currency: Optional[str] = Field(None, min_length=3, max_length=10)
     description: Optional[str] = Field(None, max_length=500)
     expense_date: Optional[date] = None
     payment_method: Optional[str] = Field(None, max_length=50)
@@ -121,6 +123,7 @@ class ExpenseResponse(BaseModel):
     user_id: int
     title: str
     amount: Decimal
+    currency: str = "PKR"
     category: str
     description: Optional[str] = None
     expense_date: date
@@ -145,10 +148,12 @@ class PaymentMethodSummaryItem(BaseModel):
 
 
 class ExpenseSummaryResponse(BaseModel):
+    currency: str = "PKR"
     total_amount: Decimal
     total_count: int
     by_category: List[CategorySummaryItem]
     by_payment_method: List[PaymentMethodSummaryItem]
+    by_currency: Optional[dict] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
 

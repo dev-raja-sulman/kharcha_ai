@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/models/report_model.dart';
 import 'package:kharcha_ai/services/report_service.dart';
+import 'package:kharcha_ai/widgets/category_icon_avatar.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
+import 'package:kharcha_ai/widgets/skeleton_loader.dart';
 
 class ReportsScreen extends StatefulWidget {
   final ReportService reportService;
@@ -17,7 +21,7 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = false;
-  String _selectedReportType = 'monthly'; // daily, weekly, monthly, yearly, custom
+  String _selectedReportType = 'monthly';
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
   String? _selectedCategory;
@@ -122,9 +126,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: const Text('Advanced Reports'),
+        title: const Text('Financial Reports & Export'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.table_view_outlined),
@@ -137,231 +148,212 @@ class _ReportsScreenState extends State<ReportsScreen> {
             onPressed: _exportPdf,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadReport,
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filter Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.white,
-            child: Column(
-              children: [
-                // Report Type Segments
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _reportTypes.map((type) {
-                      final isSelected = _selectedReportType == type;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(type[0].toUpperCase() + type.substring(1)),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textPrimary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Filter Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              child: Column(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _reportTypes.map((type) {
+                        final isSelected = _selectedReportType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(type[0].toUpperCase() + type.substring(1)),
+                            selected: isSelected,
+                            selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppColors.primary : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            onSelected: (val) {
+                              if (val) {
+                                setState(() => _selectedReportType = type);
+                                _loadReport();
+                              }
+                            },
                           ),
-                          onSelected: (val) {
-                            if (val) {
-                              setState(() => _selectedReportType = type);
-                              _loadReport();
-                            }
-                          },
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
-
-                // Custom Date Range Selectors
-                if (_selectedReportType == 'custom') ...[
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.date_range, size: 16),
-                          label: Text(
-                            'From: ${_startDate.toIso8601String().split('T')[0]}',
-                            style: const TextStyle(fontSize: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _categories.map((cat) {
+                        final isSelected = (_selectedCategory ?? 'All') == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(cat),
+                            selected: isSelected,
+                            selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                            labelStyle: TextStyle(
+                              color: isSelected ? AppColors.primary : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 11,
+                            ),
+                            onSelected: (val) {
+                              if (val) {
+                                setState(() => _selectedCategory = cat == 'All' ? null : cat);
+                                _loadReport();
+                              }
+                            },
                           ),
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _startDate,
-                              firstDate: DateTime(2020),
-                              lastDate: _endDate,
-                            );
-                            if (picked != null) {
-                              setState(() => _startDate = picked);
-                              _loadReport();
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.event, size: 16),
-                          label: Text(
-                            'To: ${_endDate.toIso8601String().split('T')[0]}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _endDate,
-                              firstDate: _startDate,
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
-                            );
-                            if (picked != null) {
-                              setState(() => _endDate = picked);
-                              _loadReport();
-                            }
-                          },
-                        ),
-                      ),
-                    ],
+                        );
+                      }).toList(),
+                    ),
                   ),
+                  if (_selectedReportType == 'custom') ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.date_range, size: 14),
+                            label: Text(
+                              'From: ${DateFormat('yyyy-MM-dd').format(_startDate)}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _startDate,
+                                firstDate: DateTime(2020),
+                                lastDate: _endDate,
+                              );
+                              if (picked != null) {
+                                setState(() => _startDate = picked);
+                                _loadReport();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.event, size: 14),
+                            label: Text(
+                              'To: ${DateFormat('yyyy-MM-dd').format(_endDate)}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _endDate,
+                                firstDate: _startDate,
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) {
+                                setState(() => _endDate = picked);
+                                _loadReport();
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-
-                // Category Filter Chips
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categories.map((cat) {
-                      final isSelected = (_selectedCategory == null && cat == 'All') || _selectedCategory == cat;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: FilterChip(
-                          label: Text(cat),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary.withOpacity(0.15),
-                          checkmarkColor: AppColors.primary,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          onSelected: (val) {
-                            setState(() {
-                              _selectedCategory = cat == 'All' ? null : cat;
-                            });
-                            _loadReport();
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Divider(height: 1, color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
 
-          const Divider(height: 1),
-
-          // Main Report Content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _report == null
-                    ? const Center(child: Text('No report data available.'))
-                    : RefreshIndicator(
-                        onRefresh: _loadReport,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // 1. Period Banner
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDFA),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFCCFBF1)),
+            // Content
+            Expanded(
+              child: _isLoading
+                  ? const Padding(padding: EdgeInsets.all(18), child: SkeletonList(count: 4))
+                  : _report == null
+                      ? const Center(child: Text('No report data available.'))
+                      : RefreshIndicator(
+                          onRefresh: _loadReport,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Period Banner
+                                FintechCard(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.calendar_month, color: AppColors.primary, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Period: ${DateFormat('MMM dd').format(_report!.startDate)} — ${DateFormat('MMM dd, yyyy').format(_report!.endDate)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: Row(
+                                const SizedBox(height: 14),
+
+                                // Summary Metric Cards
+                                Row(
                                   children: [
-                                    const Icon(Icons.calendar_month, color: AppColors.primary, size: 20),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Period: ${_report!.startDate.toIso8601String().split('T')[0]} to ${_report!.endDate.toIso8601String().split('T')[0]}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                                    Expanded(
+                                      child: FintechCard(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Total Spent', style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary)),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _report!.formattedTotalExpenditure,
+                                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: FintechCard(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Daily Average', style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary)),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _report!.formattedAverageDaily,
+                                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(height: 16),
+                                const SizedBox(height: 14),
 
-                              // 2. Summary Metric Cards
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildMetricCard(
-                                      'Total Spent',
-                                      _report!.formattedTotalExpenditure,
-                                      Icons.account_balance_wallet_outlined,
-                                      AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildMetricCard(
-                                      'Transactions',
-                                      '${_report!.totalExpenses}',
-                                      Icons.receipt_long_outlined,
-                                      Colors.indigo,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildMetricCard(
-                                      'Daily Average',
-                                      _report!.formattedAverageDaily,
-                                      Icons.trending_up,
-                                      Colors.teal,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildMetricCard(
-                                      'Top Category',
-                                      _report!.highestSpendingCategory?.category ?? '—',
-                                      Icons.star_outline,
-                                      Colors.amber.shade800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // 3. Recurring vs Regular Breakdown Card
-                              Card(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                ),
-                                elevation: 0,
-                                child: Padding(
+                                // Recurring vs One-Off Breakdown Card
+                                FintechCard(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Recurring vs One-Off Spending',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      Text(
+                                        'Recurring vs One-Off Commitments',
+                                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
                                       ),
                                       const SizedBox(height: 12),
                                       Row(
@@ -370,31 +362,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              const Text('Recurring (Commitments)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                              Text('Recurring', style: TextStyle(color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary, fontSize: 11)),
                                               const SizedBox(height: 2),
-                                              Text(
-                                                _report!.recurringVsRegular.formattedRecurringAmount,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
-                                              ),
-                                              Text(
-                                                '${_report!.recurringVsRegular.recurringPercentage.toStringAsFixed(1)}% (${_report!.recurringVsRegular.recurringCount} txs)',
-                                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                                              ),
+                                              Text(_report!.recurringVsRegular.formattedRecurringAmount, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.blue)),
+                                              Text('${_report!.recurringVsRegular.recurringPercentage.toStringAsFixed(1)}% (${_report!.recurringVsRegular.recurringCount} txs)', style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                                             ],
                                           ),
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
-                                              const Text('Regular (One-Off)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                              Text('One-Off', style: TextStyle(color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary, fontSize: 11)),
                                               const SizedBox(height: 2),
-                                              Text(
-                                                _report!.recurringVsRegular.formattedRegularAmount,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
-                                              ),
-                                              Text(
-                                                '${_report!.recurringVsRegular.regularPercentage.toStringAsFixed(1)}% (${_report!.recurringVsRegular.regularCount} txs)',
-                                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                                              ),
+                                              Text(_report!.recurringVsRegular.formattedRegularAmount, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
+                                              Text('${_report!.recurringVsRegular.regularPercentage.toStringAsFixed(1)}% (${_report!.recurringVsRegular.regularCount} txs)', style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                                             ],
                                           ),
                                         ],
@@ -402,195 +382,77 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     ],
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
+                                const SizedBox(height: 14),
 
-                              // 4. Period Comparison Card
-                              if (_report!.periodComparison != null) ...[
-                                Card(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                  ),
-                                  elevation: 0,
-                                  child: Padding(
+                                // Category Distribution
+                                if (_report!.categoryBreakdown.isNotEmpty) ...[
+                                  FintechCard(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Period-over-Period Comparison',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Compared to previous period: ${_report!.periodComparison!.previousStartDate.toIso8601String().split('T')[0]} to ${_report!.periodComparison!.previousEndDate.toIso8601String().split('T')[0]}',
-                                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                                        ),
+                                        Text('Category Breakdown', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                                         const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text('Previous Spend: ${_report!.periodComparison!.formattedPreviousExpenditure}'),
-                                            Row(
+                                        ..._report!.categoryBreakdown.map((cat) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 10.0),
+                                            child: Row(
                                               children: [
-                                                Icon(
-                                                  _report!.periodComparison!.trend == 'increased'
-                                                      ? Icons.arrow_upward
-                                                      : _report!.periodComparison!.trend == 'decreased'
-                                                          ? Icons.arrow_downward
-                                                          : Icons.remove,
-                                                  size: 16,
-                                                  color: _report!.periodComparison!.trend == 'increased'
-                                                      ? AppColors.error
-                                                      : _report!.periodComparison!.trend == 'decreased'
-                                                          ? AppColors.success
-                                                          : AppColors.textSecondary,
+                                                CategoryIconAvatar(category: cat.category, size: 26, iconSize: 13, borderRadius: 6),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(cat.category, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                                                 ),
-                                                Text(
-                                                  '${_report!.periodComparison!.difference >= 0 ? '+' : ''}${_report!.periodComparison!.percentageChange.toStringAsFixed(1)}%',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: _report!.periodComparison!.trend == 'increased'
-                                                        ? AppColors.error
-                                                        : _report!.periodComparison!.trend == 'decreased'
-                                                            ? AppColors.success
-                                                            : AppColors.textSecondary,
-                                                  ),
-                                                ),
+                                                Text(cat.formattedAmount, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
+                                                const SizedBox(width: 8),
+                                                Text('${cat.percentage.toStringAsFixed(0)}%', style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                                               ],
                                             ),
-                                          ],
-                                        ),
+                                          );
+                                        }),
                                       ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-
-                              // 5. Category Breakdown
-                              const Text(
-                                'Category Breakdown',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 8),
-                              if (_report!.categoryBreakdown.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: Center(child: Text('No categories recorded in this period.')),
-                                )
-                              else
-                                ..._report!.categoryBreakdown.map((item) {
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(item.category, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                              Text(item.formattedAmount, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          LinearProgressIndicator(
-                                            value: (item.percentage / 100.0).clamp(0.0, 1.0),
-                                            backgroundColor: const Color(0xFFF1F5F9),
-                                            color: AppColors.primary,
-                                            minHeight: 6,
-                                            borderRadius: BorderRadius.circular(3),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              '${item.formattedPercentage} (${item.count} transactions)',
-                                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }),
-                              const SizedBox(height: 24),
-
-                              // 6. Action Export Buttons
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                      ),
-                                      icon: const Icon(Icons.table_chart, size: 18),
-                                      label: const Text('Export CSV'),
-                                      onPressed: _exportCsv,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF1E293B),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                      ),
-                                      icon: const Icon(Icons.picture_as_pdf, size: 18),
-                                      label: const Text('Export PDF'),
-                                      onPressed: _exportPdf,
-                                    ),
-                                  ),
                                 ],
-                              ),
-                            ],
+                                const SizedBox(height: 24),
+
+                                // Export Buttons Row
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _exportCsv,
+                                        icon: const Icon(Icons.table_view_outlined, size: 16),
+                                        label: const Text('Export CSV'),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          side: const BorderSide(color: AppColors.primary),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _exportPdf,
+                                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                                        label: const Text('Export PDF'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 40),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const BorderSide(color: Color(0xFFE2E8F0)).color),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              Icon(icon, size: 18, color: color),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color == AppColors.primary ? AppColors.primary : AppColors.textPrimary,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

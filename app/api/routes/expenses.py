@@ -51,6 +51,7 @@ def create_expense(
 def get_expense_summary(
     start_date: Optional[date] = Query(None, description="Start date filter (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date filter (YYYY-MM-DD)"),
+    currency: Optional[str] = Query(None, description="Target currency for summary"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> ExpenseSummaryResponse:
@@ -62,7 +63,8 @@ def get_expense_summary(
         db=db,
         user_id=current_user.id,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        target_currency=currency or current_user.preferred_currency
     )
 
 

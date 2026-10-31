@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
+import 'package:kharcha_ai/core/utils/currency_formatter.dart';
 import 'package:kharcha_ai/models/financial_advisor_model.dart';
 import 'package:kharcha_ai/services/financial_advisor_service.dart';
+import 'package:kharcha_ai/widgets/skeleton_loader.dart';
 
 class ChatMessage {
   final String text;
@@ -20,10 +21,12 @@ class ChatMessage {
 
 class FinancialAdvisorScreen extends StatefulWidget {
   final FinancialAdvisorService advisorService;
+  final String? preferredCurrency;
 
   const FinancialAdvisorScreen({
     super.key,
     required this.advisorService,
+    this.preferredCurrency,
   });
 
   @override
@@ -39,8 +42,6 @@ class _FinancialAdvisorScreenState extends State<FinancialAdvisorScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
-
-  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
   final List<String> _suggestedPrompts = [
     'Can I afford a PKR 50,000 expense?',
@@ -104,36 +105,36 @@ class _FinancialAdvisorScreenState extends State<FinancialAdvisorScreen> {
     _scrollToBottom();
 
     try {
-      final res = await widget.advisorService.sendMessage(text);
+      final response = await widget.advisorService.sendMessage(text);
       if (!mounted) return;
-
       setState(() {
         _messages.add(ChatMessage(
-          text: res.reply,
+          text: response.reply,
           isUser: false,
-          provider: res.providerUsed,
+          provider: response.providerUsed,
         ));
-        _isSending = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessage(
-          text: 'Sorry, I encountered an issue processing your financial query. Please try again.',
+          text: 'I encountered an issue analyzing your request. Please try again.',
           isUser: false,
         ));
-        _isSending = false;
       });
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+        _scrollToBottom();
+      }
     }
-
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 80,
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -141,460 +142,263 @@ class _FinancialAdvisorScreenState extends State<FinancialAdvisorScreen> {
     });
   }
 
-  Color _getScoreColor(int score) {
-    if (score >= 80) return AppColors.success;
-    if (score >= 60) return const Color(0xFF0284C7);
-    if (score >= 40) return AppColors.warning;
-    return AppColors.error;
-  }
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-  Widget _buildHealthScoreHeader() {
-    if (_overview == null) return const SizedBox.shrink();
-
-    final score = _overview!.financialHealthScore;
-    final color = _getScoreColor(score);
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 10),
+            const Text('AI Financial Advisor'),
+          ],
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadAdvisorData),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 58,
-                    height: 58,
-                    child: CircularProgressIndicator(
-                      value: score / 100.0,
-                      backgroundColor: color.withOpacity(0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                      strokeWidth: 6,
-                    ),
-                  ),
-                  Text(
-                    '$score',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Context Ribbon
+            if (_overview != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  border: Border(bottom: BorderSide(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          '${_overview!.financialHealthStatus} Health',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (_insights != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySurface,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _insights!.providerUsed.startsWith('gemini') ? 'Gemini AI' : 'Rule Engine',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _insights?.summaryHeadline ?? 'Comprehensive monthly financial review',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                        height: 1.3,
+                    _buildLedgerChip('Income', CurrencyFormatter.format(_overview!.totalIncomeThisMonth, currency: widget.preferredCurrency, compact: true), AppColors.success),
+                    _buildLedgerChip('Expenses', CurrencyFormatter.format(_overview!.totalExpensesThisMonth, currency: widget.preferredCurrency, compact: true), AppColors.error),
+                    _buildLedgerChip('Net', CurrencyFormatter.format(_overview!.netCashflow, currency: widget.preferredCurrency, compact: true), AppColors.primary),
+                    _buildLedgerChip('Savings', '${_overview!.savingsRate.toStringAsFixed(0)}%', AppColors.purpleAccent),
+                  ],
+                ),
+              ),
+            ],
+
+            if (_insights != null && _insights!.keyRecommendation.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tips_and_updates_outlined, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _insights!.keyRecommendation,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: AppColors.cardBorder),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildMiniMetric('Income', 'PKR ${_currencyFormat.format(_overview!.totalIncomeThisMonth)}', AppColors.success),
-              _buildMiniMetric('Expenses', 'PKR ${_currencyFormat.format(_overview!.totalExpensesThisMonth)}', AppColors.error),
-              _buildMiniMetric('Surplus', 'PKR ${_currencyFormat.format(_overview!.netCashflow)}', AppColors.primary),
-              _buildMiniMetric('Savings Rate', '${_overview!.savingsRate}%', color),
+
+            // Chat Messages List
+            Expanded(
+              child: _isLoading && _messages.isEmpty
+                  ? const Padding(padding: EdgeInsets.all(20), child: SkeletonList(count: 3))
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        return _buildChatBubble(msg, isDark);
+                      },
+                    ),
+            ),
+
+            if (_isSending) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    const SizedBox(width: 10),
+                    Text(
+                      'AI analyzing cashflow & ledger...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-          ),
-        ],
+
+            // Suggested Prompts
+            Container(
+              height: 40,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _suggestedPrompts.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final prompt = _suggestedPrompts[index];
+                  return ActionChip(
+                    label: Text(prompt),
+                    backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+                    side: BorderSide(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+                    labelStyle: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                    onPressed: _isSending ? null : () => _sendMessage(prompt),
+                  );
+                },
+              ),
+            ),
+
+            // Message Input Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                border: Border(top: BorderSide(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: _sendMessage,
+                      decoration: InputDecoration(
+                        hintText: 'Ask financial advisor a question...',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkBackground : const Color(0xFFF2F4F7),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      onPressed: _isSending ? null : () => _sendMessage(_textController.text),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMiniMetric(String label, String value, Color color) {
+  Widget _buildLedgerChip(String label, String value, Color color) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
       ],
     );
   }
 
-  Widget _buildRecommendationsCard() {
-    if (_insights == null || _insights!.insights.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.lightbulb_outline, size: 20, color: AppColors.primary),
-              SizedBox(width: 8),
-              Text(
-                'Financial Recommendations',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primarySurface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.primaryLight.withOpacity(0.3)),
+  Widget _buildChatBubble(ChatMessage msg, bool isDark) {
+    if (msg.isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12, left: 50),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: const BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(4),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          child: Text(
+            msg.text,
+            style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.35),
+          ),
+        ),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, right: 40),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(16),
+          ),
+          border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                const Icon(Icons.star, size: 18, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _insights!.keyRecommendation,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
+                const Icon(Icons.auto_awesome, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                const Text(
+                  'KharchaAI Advisor',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          ..._insights!.insights.take(3).map((item) {
-            IconData icon = Icons.check_circle_outline;
-            Color iconColor = AppColors.success;
-            if (item.type == 'alert') {
-              icon = Icons.warning_amber_rounded;
-              iconColor = AppColors.error;
-            } else if (item.type == 'improvement') {
-              icon = Icons.trending_up;
-              iconColor = AppColors.warning;
-            }
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon, size: 16, color: iconColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          item.description,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChatBubbles() {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _messages.length,
-      itemBuilder: (context, index) {
-        final msg = _messages[index];
-        if (msg.isUser) {
-          return Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(14),
-                  bottomRight: Radius.circular(2),
-                ),
-              ),
-              child: Text(
-                msg.text,
-                style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
-              ),
-            ),
-          );
-        } else {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.all(14),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.85,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(2),
-                ),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircleAvatar(
-                        radius: 10,
-                        backgroundColor: AppColors.primarySurface,
-                        child: Icon(Icons.auto_awesome, size: 12, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Advisor AI',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      if (msg.provider != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '• ${msg.provider}',
-                          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                if (msg.provider != null) ...[
+                  const Spacer(),
                   Text(
-                    msg.text,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textPrimary,
-                      height: 1.35,
-                    ),
+                    msg.provider!,
+                    style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                   ),
                 ],
-              ),
-            ),
-          );
-        }
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('AI Financial Advisor'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAdvisorData,
-            tooltip: 'Refresh Intelligence',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : Column(
-              children: [
-                _buildHealthScoreHeader(),
-                _buildRecommendationsCard(),
-                // Suggested prompt chips
-                Container(
-                  height: 38,
-                  margin: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _suggestedPrompts.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final prompt = _suggestedPrompts[index];
-                      return ActionChip(
-                        label: Text(
-                          prompt,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textPrimary),
-                        ),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: AppColors.cardBorder),
-                        onPressed: () => _sendMessage(prompt),
-                      );
-                    },
-                  ),
-                ),
-                // Chat conversation area
-                Expanded(
-                  child: _buildChatBubbles(),
-                ),
-                if (_isSending)
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    alignment: Alignment.center,
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Advisor is analyzing your finances...',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Chat input bar
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(top: BorderSide(color: AppColors.cardBorder)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _textController,
-                          decoration: InputDecoration(
-                            hintText: 'Ask advisor (e.g. Can I afford a laptop?)...',
-                            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-                            filled: true,
-                            fillColor: AppColors.background,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(color: AppColors.cardBorder),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(color: AppColors.cardBorder),
-                            ),
-                          ),
-                          onSubmitted: (text) => _sendMessage(text),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      CircleAvatar(
-                        backgroundColor: AppColors.primary,
-                        radius: 20,
-                        child: IconButton(
-                          icon: const Icon(Icons.send, size: 18, color: Colors.white),
-                          onPressed: () => _sendMessage(_textController.text),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
+            const SizedBox(height: 8),
+            Text(
+              msg.text,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

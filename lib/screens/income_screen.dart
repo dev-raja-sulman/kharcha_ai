@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
+import 'package:kharcha_ai/core/utils/currency_formatter.dart';
 import 'package:kharcha_ai/models/income_model.dart';
 import 'package:kharcha_ai/screens/add_income_screen.dart';
 import 'package:kharcha_ai/services/income_service.dart';
+import 'package:kharcha_ai/widgets/category_icon_avatar.dart';
+import 'package:kharcha_ai/widgets/empty_state_view.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
+import 'package:kharcha_ai/widgets/skeleton_loader.dart';
 
 class IncomeScreen extends StatefulWidget {
   final IncomeService incomeService;
+  final String? preferredCurrency;
 
   const IncomeScreen({
     super.key,
     required this.incomeService,
+    this.preferredCurrency,
   });
 
   @override
@@ -73,7 +80,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Income'),
+        title: const Text('Delete Income Entry'),
         content: Text('Are you sure you want to delete "${income.title}"?'),
         actions: [
           TextButton(
@@ -98,8 +105,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Income deleted successfully'),
+            content: Text('Income record deleted successfully'),
             backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         _loadAllData();
@@ -107,16 +115,17 @@ class _IncomeScreenState extends State<IncomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete: ${e.toString()}'),
+            content: Text('Failed to delete: $e'),
             backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
   }
 
-  void _navigateToAdd({IncomeModel? existing}) async {
-    final result = await Navigator.push<bool>(
+  void _navigateToAdd({IncomeModel? existing}) {
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AddIncomeScreen(
@@ -124,341 +133,325 @@ class _IncomeScreenState extends State<IncomeScreen> {
           existingIncome: existing,
         ),
       ),
-    );
-
-    if (result == true && mounted) {
-      _loadAllData();
-    }
+    ).then((_) => _loadAllData());
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFmt = NumberFormat.currency(symbol: 'PKR ', decimalDigits: 2);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalIncomeStr = _summary != null
+        ? CurrencyFormatter.format(_summary!.totalIncome, currency: widget.preferredCurrency)
+        : '0.00';
+    final count = _summary?.totalCount ?? 0;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: const Text('Income Management'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadAllData,
+            tooltip: 'Refresh',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadAllData,
-              child: CustomScrollView(
-                slivers: [
-                  // 1. Monthly Summary Card
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _navigateToAdd(),
+        backgroundColor: AppColors.success,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Income', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadAllData,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            children: [
+              // Income Hero Card
+              FintechCard(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total Monthly Income',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        child: Container(
-                          padding: const EdgeInsets.all(20.0),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '$count entries',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      totalIncomeStr,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Search Input
+              TextField(
+                controller: _searchController,
+                onChanged: (val) {
+                  setState(() => _searchQuery = val.trim());
+                  _loadAllData();
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search income entries...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                            _loadAllData();
+                          },
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Source Filter Chips
+              if (_sources.isNotEmpty) ...[
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _sources.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        final isSelected = _selectedSourceId == null;
+                        return FilterChip(
+                          label: const Text('All Sources'),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            setState(() => _selectedSourceId = null);
+                            _loadAllData();
+                          },
+                          selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                          checkmarkColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? AppColors.primary
+                                : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : (isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+                            ),
+                          ),
+                        );
+                      }
+                      final source = _sources[index - 1];
+                      final isSelected = _selectedSourceId == source.id;
+                      return FilterChip(
+                        label: Text(source.name),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() => _selectedSourceId = source.id);
+                          _loadAllData();
+                        },
+                        selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.primary
+                                : (isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Income Ledger List
+              if (_isLoading) ...[
+                const SkeletonList(count: 5),
+              ] else if (_incomes.isEmpty) ...[
+                EmptyStateView(
+                  icon: Icons.payments_outlined,
+                  title: 'No Income Recorded',
+                  description: _searchQuery.isNotEmpty || _selectedSourceId != null
+                      ? 'No income records match your search filter.'
+                      : 'Record your salary, freelance earnings, or business income.',
+                  actionText: 'Add Income',
+                  actionIcon: Icons.add,
+                  onAction: () => _navigateToAdd(),
+                ),
+              ] else ...[
+                ..._incomes.map((income) {
+                  final dateStr = DateFormat('MMM dd, yyyy').format(income.incomeDate);
+                  return FintechCard(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        CategoryIconAvatar(category: income.sourceName ?? 'salary'),
+                        const SizedBox(width: 14),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.trending_up, color: Colors.white70, size: 20),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'This Month\'s Total Income',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
                               Text(
-                                currencyFmt.format(_summary?.totalIncome ?? 0.0),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
+                                income.title,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                                 ),
                               ),
-                              const Divider(color: Colors.white24, height: 24),
+                              const SizedBox(height: 4),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    '${_summary?.totalTransactions ?? 0} Transactions',
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                  ),
-                                  Text(
-                                    'Avg: ${currencyFmt.format(_summary?.averageIncomePerEntry ?? 0.0)}',
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 2. Search Field
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search incomes...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                    _loadAllData();
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                        onSubmitted: (val) {
-                          setState(() => _searchQuery = val.trim());
-                          _loadAllData();
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // 3. Source Filter Chips
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            FilterChip(
-                              label: const Text('All Sources'),
-                              selected: _selectedSourceId == null,
-                              onSelected: (_) {
-                                setState(() => _selectedSourceId = null);
-                                _loadAllData();
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            ..._sources.map((s) => Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: FilterChip(
-                                    label: Text(s.name),
-                                    selected: _selectedSourceId == s.id,
-                                    onSelected: (selected) {
-                                      setState(() => _selectedSourceId = selected ? s.id : null);
-                                      _loadAllData();
-                                    },
-                                  ),
-                                )),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 4. Incomes List or Empty State
-                  if (_incomes.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _searchQuery.isNotEmpty || _selectedSourceId != null
-                                    ? 'No matching income records'
-                                    : 'No income recorded yet',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _searchQuery.isNotEmpty || _selectedSourceId != null
-                                    ? 'Try adjusting your filters or search terms'
-                                    : 'Log your salary, freelance earnings, or investments to start tracking your cashflow.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: AppColors.textSecondary),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () => _navigateToAdd(),
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add First Income'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final item = _incomes[index];
-                            final dateStr = DateFormat('MMM d, yyyy').format(item.incomeDate);
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10.0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: ListTile(
-                                leading: const CircleAvatar(
-                                  backgroundColor: Color(0xFFE8F5E9),
-                                  child: Icon(
-                                    Icons.arrow_downward,
-                                    color: Color(0xFF2E7D32),
-                                  ),
-                                ),
-                                title: Text(
-                                  item.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[200],
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            item.sourceName ?? 'Income',
-                                            style: const TextStyle(fontSize: 11),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          item.paymentMethod,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
+                                    dateStr,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      dateStr,
-                                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.successBg,
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                  ],
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '+${currencyFmt.format(item.amount)}',
+                                    child: Text(
+                                      income.sourceName ?? 'Income',
                                       style: const TextStyle(
-                                        color: Color(0xFF2E7D32),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.success,
                                       ),
                                     ),
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(Icons.more_vert, size: 20),
-                                      onSelected: (val) {
-                                        if (val == 'edit') {
-                                          _navigateToAdd(existing: item);
-                                        } else if (val == 'delete') {
-                                          _handleDelete(item);
-                                        }
-                                      },
-                                      itemBuilder: (_) => [
-                                        const PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.edit, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Edit'),
-                                            ],
-                                          ),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.delete, color: AppColors.error, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Delete', style: TextStyle(color: AppColors.error)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    income.paymentMethod,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                          childCount: _incomes.length,
+                            ],
+                          ),
                         ),
-                      ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '+${CurrencyFormatter.format(income.amount, currency: widget.preferredCurrency)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: AppColors.success,
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.more_horiz,
+                                size: 18,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                              ),
+                              onSelected: (val) {
+                                if (val == 'edit') {
+                                  _navigateToAdd(existing: income);
+                                } else if (val == 'delete') {
+                                  _handleDelete(income);
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit_outlined, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                                      SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: AppColors.error)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                ],
-              ),
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToAdd(),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Income'),
-        backgroundColor: AppColors.success,
-        foregroundColor: Colors.white,
+                  );
+                }),
+              ],
+              const SizedBox(height: 80),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -34,6 +34,7 @@ class SavingGoal(Base):
     description = Column(String(500), nullable=True)
     target_amount = Column(Numeric(12, 2), nullable=False)
     current_amount = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
+    currency = Column(String(10), nullable=False, default="PKR")
     start_date = Column(Date, nullable=False, default=date.today)
     target_date = Column(Date, nullable=False)
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress, completed, cancelled

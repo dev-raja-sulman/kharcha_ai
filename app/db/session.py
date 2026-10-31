@@ -16,13 +16,15 @@ from app.models.bill import Bill  # noqa: F401
 
 # Configure connection arguments (check_same_thread needed for SQLite)
 connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
+db_url = settings.SQLALCHEMY_DATABASE_URL
+if db_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     connect_args=connect_args,
-    echo=False
+    echo=False,
+    pool_pre_ping=True
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -16,6 +16,7 @@ class ExpenseService {
     required String title,
     required double amount,
     required String category,
+    String? currency,
     String? description,
     DateTime? expenseDate,
     String? paymentMethod,
@@ -28,6 +29,7 @@ class ExpenseService {
           'title': title.trim(),
           'amount': amount.toStringAsFixed(2),
           'category': category.trim(),
+          'currency': currency ?? 'PKR',
           if (description != null && description.trim().isNotEmpty)
             'description': description.trim(),
           'expense_date': dateStr,
@@ -110,6 +112,7 @@ class ExpenseService {
     String? title,
     double? amount,
     String? category,
+    String? currency,
     String? description,
     DateTime? expenseDate,
     String? paymentMethod,
@@ -119,6 +122,7 @@ class ExpenseService {
       if (title != null) data['title'] = title.trim();
       if (amount != null) data['amount'] = amount.toStringAsFixed(2);
       if (category != null) data['category'] = category.trim();
+      if (currency != null) data['currency'] = currency.trim();
       if (description != null) data['description'] = description.trim();
       if (expenseDate != null) {
         data['expense_date'] = DateFormat('yyyy-MM-dd').format(expenseDate);

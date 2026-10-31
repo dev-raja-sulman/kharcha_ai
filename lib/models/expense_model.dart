@@ -1,10 +1,12 @@
 import 'package:intl/intl.dart';
+import 'package:kharcha_ai/core/utils/currency_formatter.dart';
 
 class ExpenseModel {
   final int id;
   final int userId;
   final String title;
   final double amount;
+  final String currency;
   final String category;
   final String? description;
   final DateTime expenseDate;
@@ -17,6 +19,7 @@ class ExpenseModel {
     required this.userId,
     required this.title,
     required this.amount,
+    this.currency = 'PKR',
     required this.category,
     this.description,
     required this.expenseDate,
@@ -31,12 +34,21 @@ class ExpenseModel {
       userId: json['user_id'] as int,
       title: json['title'] as String,
       amount: double.tryParse(json['amount'].toString()) ?? 0.0,
+      currency: json['currency'] as String? ?? 'PKR',
       category: json['category'] as String,
       description: json['description'] as String?,
-      expenseDate: DateTime.parse(json['expense_date'] as String),
+      expenseDate: json['expense_date'] != null
+          ? DateTime.parse(json['expense_date'] as String)
+          : DateTime.now(),
       paymentMethod: json['payment_method'] as String? ?? 'Cash',
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : (json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : DateTime.now()),
     );
   }
 
@@ -46,6 +58,7 @@ class ExpenseModel {
       'user_id': userId,
       'title': title,
       'amount': amount.toStringAsFixed(2),
+      'currency': currency,
       'category': category,
       'description': description,
       'expense_date': DateFormat('yyyy-MM-dd').format(expenseDate),
@@ -56,8 +69,7 @@ class ExpenseModel {
   }
 
   String get formattedAmount {
-    final formatter = NumberFormat('#,##0.00', 'en_US');
-    return 'PKR ${formatter.format(amount)}';
+    return CurrencyFormatter.format(amount, currency: currency);
   }
 
   String get formattedDate {

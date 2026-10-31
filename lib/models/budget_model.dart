@@ -60,4 +60,5 @@ class BudgetModel {
   String get formattedSpent => 'PKR ${spent.toStringAsFixed(2)}';
   String get formattedRemaining => 'PKR ${remaining.toStringAsFixed(2)}';
   bool get isOverBudget => percentageUsed >= 100.0;
+  String get displayName => name.isNotEmpty ? name : (category ?? 'Monthly Budget');
 }

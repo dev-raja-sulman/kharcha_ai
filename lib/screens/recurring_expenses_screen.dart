@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/models/expense_model.dart';
 import 'package:kharcha_ai/models/recurring_expense_model.dart';
 import 'package:kharcha_ai/services/recurring_service.dart';
+import 'package:kharcha_ai/widgets/category_icon_avatar.dart';
+import 'package:kharcha_ai/widgets/custom_button.dart';
+import 'package:kharcha_ai/widgets/custom_text_field.dart';
+import 'package:kharcha_ai/widgets/empty_state_view.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
+import 'package:kharcha_ai/widgets/skeleton_loader.dart';
+import 'package:kharcha_ai/widgets/stat_badge.dart';
 
 class RecurringExpensesScreen extends StatefulWidget {
   final RecurringService recurringService;
@@ -18,7 +26,7 @@ class RecurringExpensesScreen extends StatefulWidget {
 
 class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
   bool _isLoading = false;
-  String _selectedFilter = 'all'; // all, active, paused, cancelled
+  String _selectedFilter = 'all';
   List<RecurringExpenseModel> _rules = [];
 
   final List<String> _categories = [
@@ -72,7 +80,7 @@ class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
         SnackBar(
           content: Text(generated > 0
               ? 'Successfully generated $generated recurring expenses!'
-              : 'All recurring expenses are already up to date.'),
+              : 'All recurring rules are up to date.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -110,7 +118,7 @@ class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancel Recurring Rule'),
-        content: Text('Are you sure you want to cancel "${rule.title}"? No further expenses will be generated, but previous expenses are saved.'),
+        content: Text('Are you sure you want to cancel "${rule.title}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Back')),
           ElevatedButton(
@@ -187,187 +195,154 @@ class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
     String selectedFreq = editRule?.frequency ?? 'monthly';
     String selectedPayment = editRule?.paymentMethod ?? 'Cash';
     DateTime startDate = editRule?.startDate ?? DateTime.now();
-    DateTime? endDate = editRule?.endDate;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
+          builder: (modalCtx, setSheetState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 16,
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          editRule == null ? 'Create Recurring Expense' : 'Edit Recurring Rule',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF243049) : const Color(0xFFE4E7EC),
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
+                    const SizedBox(height: 14),
+                    Text(
+                      editRule != null ? 'Edit Recurring Rule' : 'New Recurring Rule',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    CustomTextField(
                       controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. Netflix, Gym, Rent', border: OutlineInputBorder()),
+                      label: 'Rule Title *',
+                      hint: 'e.g. Netflix, Gym Membership, Internet',
+                      prefixIcon: Icons.title,
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
+                    const SizedBox(height: 14),
+                    CustomTextField(
                       controller: amountController,
+                      label: 'Amount (PKR) *',
+                      hint: '0.00',
+                      prefixIcon: Icons.attach_money,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Amount (PKR)', hintText: '2500.00', border: OutlineInputBorder()),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: selectedCategory,
-                            decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                            items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                            onChanged: (v) {
-                              if (v != null) setSheetState(() => selectedCategory = v);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: selectedFreq,
-                            decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
-                            items: _frequencies.map((f) => DropdownMenuItem(value: f, child: Text(f[0].toUpperCase() + f.substring(1)))).toList(),
-                            onChanged: (v) {
-                              if (v != null) setSheetState(() => selectedFreq = v);
-                            },
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 14),
+                    const Text('Frequency', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      children: _frequencies.map((f) {
+                        final isSel = selectedFreq == f;
+                        return ChoiceChip(
+                          label: Text(f.toUpperCase()),
+                          selected: isSel,
+                          onSelected: (_) => setSheetState(() => selectedFreq = f),
+                          selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                        );
+                      }).toList(),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
+                    const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setSheetState(() => selectedCategory = val);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Payment Method', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: selectedPayment,
-                      decoration: const InputDecoration(labelText: 'Payment Method', border: OutlineInputBorder()),
-                      items: _paymentMethods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                      onChanged: (v) {
-                        if (v != null) setSheetState(() => selectedPayment = v);
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setSheetState(() => selectedPayment = val);
                       },
                     ),
-                    const SizedBox(height: 12),
-                    if (editRule == null)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Start Date'),
-                        subtitle: Text(startDate.toIso8601String().split('T')[0]),
-                        trailing: const Icon(Icons.calendar_today, color: AppColors.primary),
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: startDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2035),
-                          );
-                          if (picked != null) setSheetState(() => startDate = picked);
-                        },
-                      ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Optional End Date'),
-                      subtitle: Text(endDate != null ? endDate!.toIso8601String().split('T')[0] : 'No end date (Never stops)'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (endDate != null)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () => setSheetState(() => endDate = null),
-                            ),
-                          const Icon(Icons.event, color: AppColors.primary),
-                        ],
-                      ),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: endDate ?? startDate.add(const Duration(days: 90)),
-                          firstDate: startDate,
-                          lastDate: DateTime(2035),
-                        );
-                        if (picked != null) setSheetState(() => endDate = picked);
-                      },
-                    ),
-                    TextField(
+                    const SizedBox(height: 14),
+                    CustomTextField(
                       controller: descController,
-                      decoration: const InputDecoration(labelText: 'Notes (Optional)', hintText: 'Monthly subscription...', border: OutlineInputBorder()),
+                      label: 'Description (Optional)',
+                      hint: 'Subscription notes...',
+                      prefixIcon: Icons.notes,
                     ),
-                    const SizedBox(height: 18),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
+                    const SizedBox(height: 24),
+                    CustomButton(
+                      text: editRule != null ? 'Update Rule' : 'Save Recurring Rule',
                       onPressed: () async {
+                        final amt = double.tryParse(amountController.text.trim());
                         final title = titleController.text.trim();
-                        final amount = double.tryParse(amountController.text) ?? 0.0;
-                        if (title.isEmpty || amount <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter a valid title and positive amount.')),
-                          );
-                          return;
-                        }
+                        if (title.isEmpty || amt == null || amt <= 0) return;
 
-                        Navigator.pop(context);
-                        setState(() => _isLoading = true);
                         try {
-                          if (editRule == null) {
+                          if (editRule != null) {
+                            await widget.recurringService.updateRecurringRule(
+                              id: editRule.id,
+                              title: title,
+                              amount: amt,
+                              category: selectedCategory,
+                              frequency: selectedFreq,
+                              paymentMethod: selectedPayment,
+                              description: descController.text.trim().isNotEmpty ? descController.text.trim() : null,
+                            );
+                          } else {
                             await widget.recurringService.createRecurringRule(
                               title: title,
-                              amount: amount,
+                              amount: amt,
                               category: selectedCategory,
                               frequency: selectedFreq,
                               paymentMethod: selectedPayment,
                               startDate: startDate,
-                              endDate: endDate,
-                              description: descController.text.trim(),
-                            );
-                          } else {
-                            await widget.recurringService.updateRecurringRule(
-                              id: editRule.id,
-                              title: title,
-                              amount: amount,
-                              category: selectedCategory,
-                              frequency: selectedFreq,
-                              paymentMethod: selectedPayment,
-                              endDate: endDate,
-                              description: descController.text.trim(),
+                              description: descController.text.trim().isNotEmpty ? descController.text.trim() : null,
                             );
                           }
+                          if (!modalCtx.mounted) return;
+                          Navigator.pop(modalCtx);
                           _loadRules();
                         } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(content: Text('Error saving rule: $e'), backgroundColor: AppColors.error),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => _isLoading = false);
+                          if (!modalCtx.mounted) return;
+                          ScaffoldMessenger.of(modalCtx).showSnackBar(SnackBar(content: Text('Failed: $e')));
                         }
                       },
-                      child: Text(editRule == null ? 'Create Recurring Rule' : 'Save Changes'),
                     ),
                   ],
                 ),
@@ -379,246 +354,220 @@ class _RecurringExpensesScreenState extends State<RecurringExpensesScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'active':
-        return AppColors.success;
-      case 'paused':
-        return Colors.orange;
-      case 'cancelled':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeCount = _rules.where((r) => r.isActive).length;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: const Text('Recurring Expenses'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bolt, color: AppColors.primary),
-            tooltip: 'Process Due Occurrences',
+            icon: const Icon(Icons.sync_rounded),
+            tooltip: 'Run due auto-expenses',
             onPressed: _processDueExpenses,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadRules,
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddOrEditSheet(),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('New Rule'),
-        onPressed: () => _showAddOrEditSheet(),
+        label: const Text('New Rule', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
-      body: Column(
-        children: [
-          // Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: ['all', 'active', 'paused', 'cancelled'].map((f) {
-                final isSelected = _selectedFilter == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f[0].toUpperCase() + f.substring(1)),
-                    selected: isSelected,
-                    selectedColor: AppColors.primary.withOpacity(0.15),
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadRules,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            children: [
+              // Recurring Hero Card
+              FintechCard(
+                gradient: AppColors.navyHeroGradient,
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.event_repeat_rounded, color: Colors.white, size: 24),
                     ),
-                    onSelected: (val) {
-                      setState(() => _selectedFilter = f);
-                      _loadRules();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Active Auto-Subscriptions',
+                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$activeCount Active Rules',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: _processDueExpenses,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      child: const Text('Sync Due', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
-          // Rules List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _rules.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+              // Filter Chips
+              Row(
+                children: ['all', 'active', 'paused', 'cancelled'].map((f) {
+                  final isSel = _selectedFilter == f;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: FilterChip(
+                      label: Text(f.toUpperCase()),
+                      selected: isSel,
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = f);
+                        _loadRules();
+                      },
+                      selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                      labelStyle: TextStyle(
+                        color: isSel ? AppColors.primary : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
+              if (_isLoading) ...[
+                const SkeletonList(count: 3),
+              ] else if (_rules.isEmpty) ...[
+                EmptyStateView(
+                  icon: Icons.event_repeat_rounded,
+                  title: 'No Recurring Rules',
+                  description: 'Automate repetitive subscriptions like streaming services, gym, and bills.',
+                  actionText: 'Add Rule',
+                  actionIcon: Icons.add,
+                  onAction: () => _showAddOrEditSheet(),
+                ),
+              ] else ...[
+                ..._rules.map((rule) {
+                  return FintechCard(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CategoryIconAvatar(category: rule.category, size: 40, iconSize: 20),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                rule.title,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  Text(
+                                    rule.frequency.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Next: ${DateFormat('MMM d').format(rule.nextScheduledDate)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Icon(Icons.event_repeat, size: 64, color: AppColors.textSecondary),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'No Recurring Expenses',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            Text(
+                              rule.formattedAmount,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: AppColors.error,
+                              ),
                             ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Automate your bills, rent, or subscriptions.',
-                              style: TextStyle(color: AppColors.textSecondary),
+                            const SizedBox(height: 4),
+                            StatBadge.fromStatus(rule.status),
+                          ],
+                        ),
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_horiz, size: 18, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                          onSelected: (val) {
+                            if (val == 'history') {
+                              _showHistoryDialog(rule);
+                            } else if (val == 'pause') {
+                              _togglePauseResume(rule);
+                            } else if (val == 'cancel') {
+                              _cancelRule(rule);
+                            } else if (val == 'edit') {
+                              _showAddOrEditSheet(rule);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'history', child: Text('Execution History')),
+                            const PopupMenuItem(value: 'edit', child: Text('Edit Rule')),
+                            PopupMenuItem(
+                              value: 'pause',
+                              child: Text(rule.isActive ? 'Pause Rule' : 'Resume Rule'),
                             ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => _showAddOrEditSheet(),
-                              child: const Text('Create Rule'),
+                            const PopupMenuItem(
+                              value: 'cancel',
+                              child: Text('Cancel Rule', style: TextStyle(color: AppColors.error)),
                             ),
                           ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadRules,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
-                          itemCount: _rules.length,
-                          itemBuilder: (context, index) {
-                            final rule = _rules[index];
-                            final statusColor = _getStatusColor(rule.status);
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            rule.title,
-                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: statusColor.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            rule.status.toUpperCase(),
-                                            style: TextStyle(
-                                              color: statusColor,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          rule.formattedAmount,
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F5F9),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            rule.formattedFrequency,
-                                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F5F9),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            rule.category,
-                                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.schedule, size: 14, color: AppColors.textSecondary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Next: ${rule.nextScheduledDate.toIso8601String().split('T')[0]}',
-                                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                        ),
-                                        if (rule.endDate != null) ...[
-                                          const SizedBox(width: 12),
-                                          const Icon(Icons.flag_outlined, size: 14, color: AppColors.textSecondary),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Ends: ${rule.endDate!.toIso8601String().split('T')[0]}',
-                                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const Divider(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.history, size: 16),
-                                          label: const Text('History'),
-                                          onPressed: () => _showHistoryDialog(rule),
-                                        ),
-                                        if (!rule.isCancelled && !rule.isCompleted) ...[
-                                          IconButton(
-                                            icon: Icon(
-                                              rule.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                                              color: rule.isActive ? Colors.orange : AppColors.success,
-                                            ),
-                                            tooltip: rule.isActive ? 'Pause Rule' : 'Resume Rule',
-                                            onPressed: () => _togglePauseResume(rule),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.edit_outlined, size: 20),
-                                            tooltip: 'Edit Rule',
-                                            onPressed: () => _showAddOrEditSheet(rule),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
-                                            tooltip: 'Cancel Rule',
-                                            onPressed: () => _cancelRule(rule),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+              const SizedBox(height: 80),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

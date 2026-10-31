@@ -31,6 +31,7 @@ class RecurringExpense(Base):
     )
     title = Column(String(150), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(10), nullable=False, default="PKR")
     category = Column(String(50), nullable=False, index=True)
     description = Column(String(500), nullable=True)
     frequency = Column(String(20), nullable=False, index=True)  # daily, weekly, monthly, yearly

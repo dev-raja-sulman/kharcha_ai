@@ -86,6 +86,47 @@ class AuthService {
     }
   }
 
+  /// Update user profile details (full name and/or preferred currency)
+  Future<UserModel> updateProfile({
+    String? fullName,
+    String? preferredCurrency,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (fullName != null) data['full_name'] = fullName.trim();
+      if (preferredCurrency != null) {
+        data['preferred_currency'] = preferredCurrency.trim().toUpperCase();
+      }
+
+      final response = await _apiClient.dio.patch(
+        ApiConfig.meUrl,
+        data: data,
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Could not update profile: ${e.toString()}');
+    }
+  }
+
+  /// Update preferred display currency
+  Future<UserModel> updatePreferredCurrency(String currency) async {
+    try {
+      final response = await _apiClient.dio.put(
+        ApiConfig.currencyUrl,
+        data: {'currency': currency.trim().toUpperCase()},
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Could not update preferred currency: ${e.toString()}');
+    }
+  }
+
   /// End the user session and clear stored credentials
   Future<void> logout() async {
     await _storage.clearAll();

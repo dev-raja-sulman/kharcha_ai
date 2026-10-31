@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/services/bill_service.dart';
+import 'package:kharcha_ai/widgets/custom_button.dart';
+import 'package:kharcha_ai/widgets/custom_text_field.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
 
 class AddBillScreen extends StatefulWidget {
   final BillService billService;
@@ -58,18 +61,6 @@ class _AddBillScreenState extends State<AddBillScreen> {
       initialDate: _dueDate,
       firstDate: DateTime.now().subtract(const Duration(days: 60)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -107,246 +98,215 @@ class _AddBillScreenState extends State<AddBillScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bill added successfully!'),
+          content: Text('Bill obligation scheduled successfully!'),
           backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.of(context).pop(true);
+
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text('Failed to schedule bill: $e'),
           backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('EEE, MMM dd, yyyy');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: const Text('Add New Bill'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
+        title: const Text('Schedule Bill Reminder'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Title field
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AppColors.cardBorder),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Bill Details',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Bill Title *',
-                          hintText: 'e.g. LESCO Electricity, Fiber Net',
-                          prefixIcon: Icon(Icons.receipt_long, color: AppColors.primary),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter a title for the bill';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          prefixIcon: Icon(Icons.category, color: AppColors.primary),
-                          border: OutlineInputBorder(),
-                        ),
-                        items: _categories.map((cat) {
-                          return DropdownMenuItem(
-                            value: cat,
-                            child: Text(cat),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedCategory = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount (PKR) *',
-                          hintText: '0.00',
-                          prefixIcon: Icon(Icons.currency_exchange, color: AppColors.primary),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter an amount';
-                          }
-                          final parsed = double.tryParse(value.trim());
-                          if (parsed == null || parsed <= 0) {
-                            return 'Enter a valid positive number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Due date & Schedule
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AppColors.cardBorder),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Due Date & Schedule',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      InkWell(
-                        onTap: _selectDueDate,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(8),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Amount Hero Input Card
+                    FintechCard(
+                      gradient: AppColors.navyHeroGradient,
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Bill Due Amount',
+                            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
                           ),
-                          child: Row(
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
-                              const Icon(Icons.calendar_today, color: AppColors.primary),
-                              const SizedBox(width: 12),
+                              const Text(
+                                'PKR ',
+                                style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Due Date',
-                                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                    ),
-                                    Text(
-                                      dateFormat.format(_dueDate),
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ],
+                                child: TextFormField(
+                                  controller: _amountController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  cursorColor: Colors.white,
+                                  decoration: const InputDecoration(
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(color: Colors.white38, fontSize: 32),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    filled: false,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return 'Please enter amount';
+                                    if (double.tryParse(v.trim()) == null) return 'Invalid amount';
+                                    return null;
+                                  },
                                 ),
                               ),
-                              const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
                             ],
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedFrequency,
-                        decoration: const InputDecoration(
-                          labelText: 'Recurrence Frequency',
-                          prefixIcon: Icon(Icons.repeat, color: AppColors.primary),
-                          border: OutlineInputBorder(),
-                        ),
-                        items: _frequencies.map((freq) {
-                          return DropdownMenuItem(
-                            value: freq['value'],
-                            child: Text(freq['label']!),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedFrequency = val);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Payment Reminders',
-                          style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        ),
-                        subtitle: const Text(
-                          'Show in upcoming obligations and alert cards',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                        value: _reminderEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) => setState(() => _reminderEnabled = val),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: 18),
 
-              // Submit button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitBill,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Save Bill',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    FintechCard(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CustomTextField(
+                            controller: _titleController,
+                            label: 'Bill Title *',
+                            hint: 'e.g. LESCO Electricity, StormFiber Fiber, Netflix',
+                            prefixIcon: Icons.receipt_long_rounded,
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Please enter a bill title' : null,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Category Picker
+                          const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedCategory,
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedCategory = val);
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Frequency selector
+                          const Text('Recurring Frequency', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _frequencies.map((f) {
+                              final isSelected = _selectedFrequency == f['value'];
+                              return ChoiceChip(
+                                label: Text(f['label']!),
+                                selected: isSelected,
+                                onSelected: (_) => setState(() => _selectedFrequency = f['value']!),
+                                selectedColor: isDark ? AppColors.darkPrimarySurface : AppColors.primarySurface,
+                                labelStyle: TextStyle(
+                                  color: isSelected ? AppColors.primary : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Due Date
+                          const Text('Due Date', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: _selectDueDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.darkSurface : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.event_rounded, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    DateFormat('MMMM dd, yyyy').format(_dueDate),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Reminder Toggle
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Enable Reminders', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            subtitle: const Text('Receive proactive alerts before the due date', style: TextStyle(fontSize: 12)),
+                            value: _reminderEnabled,
+                            activeColor: AppColors.primary,
+                            onChanged: (val) => setState(() => _reminderEnabled = val),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    CustomButton(
+                      text: 'Schedule Bill',
+                      icon: Icons.check_circle_rounded,
+                      isLoading: _isLoading,
+                      onPressed: _submitBill,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -104,5 +104,6 @@ def health_check() -> HealthResponse:
 
 if __name__ == "__main__":
     import uvicorn
-    # Bind to 0.0.0.0 so both Android emulator (10.0.2.2) and local devices can connect
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    # Bind to 0.0.0.0 and PORT (compatible with Render, Android emulator, and local devices)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)

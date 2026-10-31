@@ -46,4 +46,20 @@ class ReceiptScannerService {
       throw ApiException(message: 'Failed to process receipt: ${e.toString()}');
     }
   }
+
+  /// Flexible alias accepting bytes or imageBytes, provider or providerOverride
+  Future<ReceiptScanModel> scanReceipt({
+    List<int>? bytes,
+    List<int>? imageBytes,
+    required String filename,
+    String? provider,
+    String? providerOverride,
+  }) {
+    final finalBytes = bytes ?? imageBytes ?? [];
+    return scanReceiptBytes(
+      bytes: finalBytes,
+      filename: filename,
+      providerOverride: provider ?? providerOverride,
+    );
+  }
 }

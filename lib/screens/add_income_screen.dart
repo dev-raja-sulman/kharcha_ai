@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/models/income_model.dart';
 import 'package:kharcha_ai/services/income_service.dart';
+import 'package:kharcha_ai/widgets/custom_button.dart';
+import 'package:kharcha_ai/widgets/custom_text_field.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
 
 class AddIncomeScreen extends StatefulWidget {
   final IncomeService incomeService;
@@ -115,40 +118,48 @@ class _AddIncomeScreenState extends State<AddIncomeScreen> {
           widget.existingIncome!.id,
           title: _titleController.text.trim(),
           amount: amountVal,
+          sourceId: _selectedSourceId,
           incomeDate: _selectedDate,
           paymentMethod: _selectedPaymentMethod,
-          description: _descriptionController.text.trim(),
-          sourceId: _selectedSourceId,
+          description: _descriptionController.text.trim().isNotEmpty
+              ? _descriptionController.text.trim()
+              : null,
         );
       } else {
         await widget.incomeService.createIncome(
           title: _titleController.text.trim(),
           amount: amountVal,
+          sourceId: _selectedSourceId,
           incomeDate: _selectedDate,
           paymentMethod: _selectedPaymentMethod,
-          description: _descriptionController.text.trim(),
-          sourceId: _selectedSourceId,
+          description: _descriptionController.text.trim().isNotEmpty
+              ? _descriptionController.text.trim()
+              : null,
         );
       }
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             widget.existingIncome != null
-                ? 'Income updated successfully'
-                : 'Income recorded successfully',
+                ? 'Income updated successfully!'
+                : 'Income logged successfully!',
           ),
           backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
         ),
       );
+
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed: ${e.toString()}'),
+          content: Text('Failed to save income: $e'),
           backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
@@ -158,163 +169,230 @@ class _AddIncomeScreenState extends State<AddIncomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.existingIncome != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isEdit = widget.existingIncome != null;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Income' : 'Add Income'),
+        title: Text(isEdit ? 'Edit Income' : 'Add New Income'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: _isLoadingSources
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Title Field
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Income Title *',
-                        hintText: 'e.g. October Salary, Freelance Web App',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                    // Amount Hero Input Card
+                    FintechCard(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Title is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Amount Field
-                    TextFormField(
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Amount (PKR) *',
-                        hintText: 'e.g. 50000.00',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.attach_money),
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Amount is required';
-                        }
-                        final parsed = double.tryParse(val.trim());
-                        if (parsed == null || parsed <= 0) {
-                          return 'Enter an amount greater than 0';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Source Dropdown
-                    if (_sources.isNotEmpty)
-                      DropdownButtonFormField<int>(
-                        value: _selectedSourceId,
-                        decoration: const InputDecoration(
-                          labelText: 'Income Source',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.category),
-                        ),
-                        items: _sources.map((s) {
-                          return DropdownMenuItem<int>(
-                            value: s.id,
-                            child: Text(s.name),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() => _selectedSourceId = val);
-                        },
-                      ),
-                    if (_sources.isNotEmpty) const SizedBox(height: 16),
-
-                    // Payment Method Dropdown
-                    DropdownButtonFormField<String>(
-                      value: _selectedPaymentMethod,
-                      decoration: const InputDecoration(
-                        labelText: 'Payment Method',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.payment),
-                      ),
-                      items: _paymentMethods.map((m) {
-                        return DropdownMenuItem<String>(
-                          value: m,
-                          child: Text(m),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-
-                        if (val != null) setState(() => _selectedPaymentMethod = val);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Date Picker Tile
-                    InkWell(
-                      onTap: _selectDate,
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Income Date',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(
-                          DateFormat('yyyy-MM-dd').format(_selectedDate),
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Income Amount',
+                            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              const Text(
+                                '+',
+                                style: TextStyle(color: Colors.white70, fontSize: 28, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _amountController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  cursorColor: Colors.white,
+                                  decoration: const InputDecoration(
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(color: Colors.white38, fontSize: 32),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    filled: false,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return 'Please enter amount';
+                                    if (double.tryParse(v.trim()) == null) return 'Invalid number';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // Description Field
-                    TextFormField(
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Description / Notes (Optional)',
-                        hintText: 'e.g. Bonus included or client invoice #104',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.notes),
+                    FintechCard(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CustomTextField(
+                            controller: _titleController,
+                            label: 'Title / Description *',
+                            hint: 'e.g. October Salary, Freelance project',
+                            prefixIcon: Icons.title_rounded,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Please enter a title';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Source Selection
+                          const Text(
+                            'Income Source',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_isLoadingSources) ...[
+                            const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ] else if (_sources.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _sources.map((s) {
+                                final isSelected = _selectedSourceId == s.id;
+                                return ChoiceChip(
+                                  label: Text(s.name),
+                                  selected: isSelected,
+                                  onSelected: (_) => setState(() => _selectedSourceId = s.id),
+                                  selectedColor: AppColors.successBg,
+                                  labelStyle: TextStyle(
+                                    color: isSelected ? AppColors.success : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                          const SizedBox(height: 18),
+
+                          // Date Picker Row
+                          const Text(
+                            'Received Date',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: _selectDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.darkSurface : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    DateFormat('MMMM dd, yyyy').format(_selectedDate),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Payment Method Chips
+                          const Text(
+                            'Payment Method',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _paymentMethods.map((m) {
+                              final isSelected = _selectedPaymentMethod == m;
+                              return ChoiceChip(
+                                label: Text(m),
+                                selected: isSelected,
+                                onSelected: (_) => setState(() => _selectedPaymentMethod = m),
+                                selectedColor: AppColors.primarySurface,
+                                labelStyle: TextStyle(
+                                  color: isSelected ? AppColors.primary : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Notes
+                          CustomTextField(
+                            controller: _descriptionController,
+                            label: 'Additional Notes (Optional)',
+                            hint: 'Any extra details or memo...',
+                            prefixIcon: Icons.notes_rounded,
+                            maxLines: 2,
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Submit Button
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _handleSubmit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              isEditing ? 'Save Changes' : 'Record Income',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                    CustomButton(
+                      text: isEdit ? 'Update Income' : 'Record Income',
+                      icon: Icons.check_circle_rounded,
+                      backgroundColor: AppColors.success,
+                      isLoading: _isLoading,
+                      onPressed: _handleSubmit,
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }

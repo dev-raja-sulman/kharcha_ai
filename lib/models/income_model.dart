@@ -106,6 +106,10 @@ class IncomeModel {
       'description': description,
     };
   }
+
+  String get formattedDate {
+    return '${incomeDate.year}-${incomeDate.month.toString().padLeft(2, '0')}-${incomeDate.day.toString().padLeft(2, '0')}';
+  }
 }
 
 class IncomeListModel {
@@ -192,4 +196,6 @@ class IncomeSummaryModel {
       averageIncomePerEntry: double.tryParse(json['average_income_per_entry']?.toString() ?? '0') ?? 0.0,
     );
   }
+
+  int get totalCount => totalTransactions;
 }

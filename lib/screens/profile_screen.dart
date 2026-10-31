@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:kharcha_ai/core/config/api_config.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/core/network/api_exception.dart';
+import 'package:kharcha_ai/core/theme/theme_controller.dart';
+import 'package:kharcha_ai/core/utils/currency_formatter.dart';
 import 'package:kharcha_ai/models/user_model.dart';
+import 'package:kharcha_ai/screens/currency_settings_screen.dart';
 import 'package:kharcha_ai/screens/login_screen.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
+import 'package:kharcha_ai/services/currency_service.dart';
 import 'package:kharcha_ai/widgets/custom_button.dart';
+import 'package:kharcha_ai/widgets/fintech_card.dart';
+import 'package:kharcha_ai/widgets/skeleton_loader.dart';
 
 class ProfileScreen extends StatefulWidget {
   final AuthService authService;
@@ -55,11 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _error = 'Failed to load profile details.';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -72,7 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -99,208 +102,258 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildInfoRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color? valueColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primarySurface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor ?? AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+  void _openCurrencySettings() async {
+    if (_user == null) return;
+    final currencyService = CurrencyService(apiClient: widget.authService.apiClient);
+    final updated = await Navigator.push<UserModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CurrencySettingsScreen(
+          currencyService: currencyService,
+          currentUser: _user!,
+        ),
       ),
     );
+    if (updated != null && mounted) {
+      setState(() {
+        _user = updated;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final formattedDate = _user != null
         ? DateFormat('MMMM dd, yyyy').format(_user!.createdAt)
         : 'Loading...';
+    final userCurrency = _user?.preferredCurrency ?? 'PKR';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'My Profile',
-          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Profile & Settings'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.primary),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _isLoading ? null : _fetchProfile,
-            tooltip: 'Refresh Profile from API',
+            tooltip: 'Refresh Profile',
           ),
         ],
       ),
       body: SafeArea(
         child: _isLoading && _user == null
-            ? const Center(child: CircularProgressIndicator())
+            ? const Padding(padding: EdgeInsets.all(20), child: SkeletonList(count: 3))
             : SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
+                    constraints: const BoxConstraints(maxWidth: 520),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Avatar & Header
-                        Center(
-                          child: Column(
+                        // Avatar Header Card
+                        FintechCard(
+                          padding: const EdgeInsets.all(22),
+                          child: Row(
                             children: [
-                              CircleAvatar(
-                                radius: 42,
-                                backgroundColor: AppColors.primarySurface,
-                                child: Text(
-                                  _user?.displayName.substring(0, 1).toUpperCase() ?? 'U',
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: const BoxDecoration(
+                                  gradient: AppColors.primaryGradient,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _user?.displayName.substring(0, 1).toUpperCase() ?? 'U',
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                _user?.displayName ?? 'KharchaAI User',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _user?.email ?? '',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.textSecondary,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          _user?.displayName ?? 'KharchaAI Member',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Icon(Icons.verified, color: AppColors.primary, size: 16),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _user?.email ?? '',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDark ? AppColors.darkTextMuted : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 18),
 
-                        // Error Banner
                         if (_error != null) ...[
                           Container(
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.errorBg,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                            ),
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(color: AppColors.error, fontSize: 13),
-                            ),
+                            decoration: BoxDecoration(color: AppColors.errorBg, borderRadius: BorderRadius.circular(10)),
+                            child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
                           ),
                           const SizedBox(height: 16),
                         ],
 
-                        // Profile Details Card
-                        Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: const BorderSide(color: AppColors.cardBorder),
-                          ),
-                          color: Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                _buildInfoRow(
-                                  icon: Icons.tag,
-                                  label: 'Account ID',
-                                  value: '#${_user?.id ?? '—'}',
-                                ),
-                                const Divider(height: 1, color: AppColors.cardBorder),
-                                _buildInfoRow(
-                                  icon: Icons.person_outline,
-                                  label: 'Full Name',
-                                  value: _user?.fullName ?? 'Not provided',
-                                ),
-                                const Divider(height: 1, color: AppColors.cardBorder),
-                                _buildInfoRow(
-                                  icon: Icons.email_outlined,
-                                  label: 'Email Address',
-                                  value: _user?.email ?? '—',
-                                ),
-                                const Divider(height: 1, color: AppColors.cardBorder),
-                                _buildInfoRow(
-                                  icon: Icons.verified_user_outlined,
-                                  label: 'Account Status',
-                                  value: (_user?.isActive ?? true) ? 'Active' : 'Inactive',
-                                  valueColor: (_user?.isActive ?? true) ? AppColors.success : AppColors.error,
-                                ),
-                                const Divider(height: 1, color: AppColors.cardBorder),
-                                _buildInfoRow(
-                                  icon: Icons.calendar_today_outlined,
-                                  label: 'Member Since',
-                                  value: formattedDate,
-                                ),
-                              ],
-                            ),
+                        // App Preferences Section
+                        Text(
+                          'Preferences',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 10),
+                        FintechCard(
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            children: [
+                              // Theme Switch
+                              ListTile(
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySurface,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: const Text('Dark Mode', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                subtitle: Text(
+                                  isDark ? 'Dark theme enabled' : 'Light theme enabled',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                trailing: Switch(
+                                  value: isDark,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (_) => ThemeController.instance.toggleTheme(),
+                                ),
+                              ),
+                              const Divider(height: 1),
 
-                        // Logout Button
+                              // Currency Settings
+                              ListTile(
+                                onTap: _openCurrencySettings,
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.successBg,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.currency_exchange_rounded, color: AppColors.success, size: 20),
+                                ),
+                                title: const Text('Display Currency', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                subtitle: Text(
+                                  '$userCurrency (${CurrencyFormatter.getName(userCurrency)})',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                trailing: const Icon(Icons.chevron_right, size: 20),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Account Details Section
+                        Text(
+                          'Account Information',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        FintechCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildRow('Account ID', '#${_user?.id ?? '—'}', Icons.tag, isDark),
+                              const Divider(height: 18),
+                              _buildRow('Full Name', _user?.fullName ?? 'Not provided', Icons.person_outline, isDark),
+                              const Divider(height: 18),
+                              _buildRow('Email', _user?.email ?? '—', Icons.email_outlined, isDark),
+                              const Divider(height: 18),
+                              _buildRow('Member Since', formattedDate, Icons.calendar_today_outlined, isDark),
+                              const Divider(height: 18),
+                              _buildRow('Backend Server', ApiConfig.baseUrl, Icons.cloud_done_outlined, isDark),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Logout
                         CustomButton(
-                          text: 'Log Out',
+                          text: 'Log Out of KharchaAI',
                           icon: Icons.logout_rounded,
                           backgroundColor: AppColors.errorBg,
                           textColor: AppColors.error,
                           onPressed: _handleLogout,
                         ),
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
                 ),
               ),
       ),
+    );
+  }
+
+  Widget _buildRow(String label, String value, IconData icon, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

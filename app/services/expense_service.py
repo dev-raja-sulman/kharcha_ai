@@ -6,6 +6,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.expense import Expense
+from app.models.user import User
 from app.schemas.expense import (
     CategorySummaryItem,
     ExpenseCreateRequest,
@@ -13,6 +14,7 @@ from app.schemas.expense import (
     ExpenseUpdateRequest,
     PaymentMethodSummaryItem,
 )
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class ExpenseService:
@@ -35,6 +37,7 @@ class ExpenseService:
             user_id=user_id,
             title=req.title,
             amount=req.amount,
+            currency=(req.currency or "PKR").upper().strip(),
             category=req.category,
             description=req.description.strip() if req.description else None,
             expense_date=req.expense_date or date.today(),
@@ -137,6 +140,8 @@ class ExpenseService:
         for field, value in update_data.items():
             if field == "description" and value is not None:
                 value = value.strip() or None
+            elif field == "currency" and value is not None:
+                value = value.upper().strip()
             setattr(expense, field, value)
 
         db.commit()
@@ -162,12 +167,21 @@ class ExpenseService:
         db: Session,
         user_id: int,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        target_currency: Optional[str] = None
     ) -> ExpenseSummaryResponse:
         """
         Compute aggregated metrics (totals, category breakdown, payment methods)
         for the authenticated user within the requested date range.
+        Converts expenses to target_currency using stored exchange rates without mixing currencies directly.
         """
+        user = db.query(User).filter(User.id == user_id).first()
+        display_curr = (
+            target_currency.strip().upper()
+            if target_currency
+            else (user.preferred_currency if user and user.preferred_currency else "PKR")
+        )
+
         base_query = db.query(Expense).filter(Expense.user_id == user_id)
 
         if start_date:
@@ -175,54 +189,75 @@ class ExpenseService:
         if end_date:
             base_query = base_query.filter(Expense.expense_date <= end_date)
 
-        # 1. Total amount and count
-        total_row = base_query.with_entities(
-            func.coalesce(func.sum(Expense.amount), Decimal("0.00")).label("total_sum"),
-            func.count(Expense.id).label("total_count")
-        ).first()
+        expenses = base_query.all()
+        total_count = len(expenses)
 
-        total_amount = Decimal(str(total_row[0] or "0.00"))
-        total_count = int(total_row[1] or 0)
+        total_amount = Decimal("0.00")
+        by_currency: dict = {}
+        category_map: dict = {}
+        payment_map: dict = {}
 
-        # 2. Category breakdown
-        category_rows = base_query.with_entities(
-            Expense.category,
-            func.coalesce(func.sum(Expense.amount), Decimal("0.00")).label("cat_sum"),
-            func.count(Expense.id).label("cat_count")
-        ).group_by(Expense.category).order_by(func.sum(Expense.amount).desc()).all()
+        for exp in expenses:
+            amt = Decimal(str(exp.amount))
+            curr = (exp.currency or "PKR").upper().strip()
+            by_currency[curr] = by_currency.get(curr, Decimal("0.00")) + amt
+
+            if curr == display_curr:
+                conv_amt = amt
+            else:
+                converted = ExchangeRateService.convert(
+                    db=db,
+                    amount=amt,
+                    from_currency=curr,
+                    to_currency=display_curr,
+                    effective_on=exp.expense_date
+                )
+                conv_amt = converted if converted is not None else Decimal("0.00")
+
+            total_amount += conv_amt
+
+            # Category aggregation
+            cat = exp.category
+            if cat not in category_map:
+                category_map[cat] = {"amount": Decimal("0.00"), "count": 0}
+            category_map[cat]["amount"] += conv_amt
+            category_map[cat]["count"] += 1
+
+            # Payment method aggregation
+            pm = exp.payment_method or "Cash"
+            if pm not in payment_map:
+                payment_map[pm] = {"amount": Decimal("0.00"), "count": 0}
+            payment_map[pm]["amount"] += conv_amt
+            payment_map[pm]["count"] += 1
 
         by_category: List[CategorySummaryItem] = []
-        for cat, cat_sum, cat_count in category_rows:
-            cat_amount = Decimal(str(cat_sum or "0.00"))
-            percentage = float((cat_amount / total_amount) * 100) if total_amount > 0 else 0.0
+        for cat, data in sorted(category_map.items(), key=lambda x: x[1]["amount"], reverse=True):
+            pct = float((data["amount"] / total_amount) * 100) if total_amount > 0 else 0.0
             by_category.append(CategorySummaryItem(
                 category=cat,
-                total_amount=cat_amount,
-                count=int(cat_count or 0),
-                percentage=round(percentage, 2)
+                total_amount=data["amount"],
+                count=data["count"],
+                percentage=round(pct, 2)
             ))
-
-        # 3. Payment method breakdown
-        method_rows = base_query.with_entities(
-            Expense.payment_method,
-            func.coalesce(func.sum(Expense.amount), Decimal("0.00")).label("method_sum"),
-            func.count(Expense.id).label("method_count")
-        ).group_by(Expense.payment_method).order_by(func.sum(Expense.amount).desc()).all()
 
         by_payment_method: List[PaymentMethodSummaryItem] = [
             PaymentMethodSummaryItem(
-                payment_method=method or "Cash",
-                total_amount=Decimal(str(m_sum or "0.00")),
-                count=int(m_count or 0)
+                payment_method=pm,
+                total_amount=data["amount"],
+                count=data["count"]
             )
-            for method, m_sum, m_count in method_rows
+            for pm, data in sorted(payment_map.items(), key=lambda x: x[1]["amount"], reverse=True)
         ]
 
+        by_currency_serialized = {k: float(v) for k, v in by_currency.items()}
+
         return ExpenseSummaryResponse(
+            currency=display_curr,
             total_amount=total_amount,
             total_count=total_count,
             by_category=by_category,
             by_payment_method=by_payment_method,
+            by_currency=by_currency_serialized,
             start_date=start_date,
             end_date=end_date
         )

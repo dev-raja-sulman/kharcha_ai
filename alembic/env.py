@@ -27,8 +27,8 @@ from app.models.bill import Bill  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-# Dynamic database URL override from app settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Dynamic database URL override from app settings (normalized for psycopg)
+config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URL)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:

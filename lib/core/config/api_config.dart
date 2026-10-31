@@ -16,8 +16,8 @@ class ApiConfig {
   // Reachable local network IP for physical mobile device testing
   static const String physicalDeviceHost = 'http://192.168.1.13:8000';
   
-  // Production URL (HTTPS)
-  static const String productionHost = 'https://api.kharcha.ai';
+  // Production URL (HTTPS) - Render Free Deployment
+  static const String productionHost = 'https://kharcha-ai-backend.onrender.com';
 
   /// Resolves the active base URL dynamically based on environment, platform, and overrides
   static String get baseUrl {
@@ -26,12 +26,12 @@ class ApiConfig {
       return _customBaseUrl;
     }
 
-    // 2. Check production environment
-    if (_envMode == 'production') {
+    // 2. Release APK / production mode always uses production HTTPS backend
+    if (kReleaseMode || _envMode == 'production') {
       return productionHost;
     }
 
-    // 3. Physical device override mode
+    // 3. Physical device override mode (local Wi-Fi)
     if (_envMode == 'physical') {
       return physicalDeviceHost;
     }
@@ -60,6 +60,7 @@ class ApiConfig {
   static String get registerUrl => '$baseUrl/api/v1/auth/register';
   static String get loginUrl => '$baseUrl/api/v1/auth/login';
   static String get meUrl => '$baseUrl/api/v1/auth/me';
+  static String get currencyUrl => '$baseUrl/api/v1/auth/currency';
   static String get expensesUrl => '$baseUrl/api/v1/expenses';
   static String get expenseSummaryUrl => '$baseUrl/api/v1/expenses/summary';
   static String get expenseCategoriesUrl => '$baseUrl/api/v1/expenses/categories';

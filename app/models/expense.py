@@ -34,6 +34,7 @@ class Expense(Base):
     title = Column(String(150), nullable=False)
     # Stored as Numeric(12, 2) for currency precision up to 9,999,999,999.99
     amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(10), nullable=False, default="PKR")
     category = Column(String(50), nullable=False, index=True)
     description = Column(String(500), nullable=True)
     expense_date = Column(

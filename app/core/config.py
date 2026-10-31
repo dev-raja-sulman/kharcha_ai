@@ -18,9 +18,24 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours for local development convenience
     
+    PORT: int = int(os.getenv("PORT", 8000))
+
     # Database Configuration
     # SQLite is used for local Phase 1 development; fully prepared for PostgreSQL in Phase 2
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./kharcha_dev.db")
+
+    @property
+    def SQLALCHEMY_DATABASE_URL(self) -> str:
+        """
+        Normalizes database URL for SQLAlchemy 2.0 with psycopg v3.
+        Translates 'postgres://' or 'postgresql://' into 'postgresql+psycopg://'.
+        """
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+psycopg://", 1)
+        if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+            return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return url
     
     # CORS Configuration
     CORS_ORIGINS: List[str] = [

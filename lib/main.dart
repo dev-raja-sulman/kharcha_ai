@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:kharcha_ai/core/constants/app_colors.dart';
+import 'package:kharcha_ai/core/currency/currency_controller.dart';
 import 'package:kharcha_ai/core/network/api_client.dart';
 import 'package:kharcha_ai/core/storage/secure_storage_service.dart';
+import 'package:kharcha_ai/core/theme/app_theme.dart';
+import 'package:kharcha_ai/core/theme/theme_controller.dart';
 import 'package:kharcha_ai/screens/splash_screen.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await ThemeController.instance.init();
+  await CurrencyController.instance.init();
 
   final storage = SecureStorageService();
   final apiClient = ApiClient(storage: storage);
@@ -25,25 +30,21 @@ class KharchaAIApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'KharchaAI',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
-          surface: AppColors.surface,
-        ),
-        scaffoldBackgroundColor: AppColors.background,
-        fontFamily: 'Inter',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: AppColors.textPrimary,
-          elevation: 0,
-        ),
-      ),
-      home: SplashScreen(authService: authService),
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        ThemeController.instance,
+        CurrencyController.instance,
+      ]),
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'KharchaAI',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeController.instance.themeMode,
+          home: SplashScreen(authService: authService),
+        );
+      },
     );
   }
 }

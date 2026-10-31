@@ -32,6 +32,7 @@ class Budget(Base):
     name = Column(String(100), nullable=False)
     # Stored as Numeric(12, 2) for exact currency precision
     amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(10), nullable=False, default="PKR")
     category = Column(String(50), nullable=True, index=True)
     month = Column(Integer, nullable=False)  # 1 - 12
     year = Column(Integer, nullable=False)   # e.g. 2026
