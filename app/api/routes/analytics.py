@@ -6,7 +6,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.analytics import SpendingAnalyticsResponse, SpendingInsightsResponse
+from app.schemas.cashflow import CashflowOverviewResponse
 from app.services.analytics_service import AnalyticsService
+
 from app.services.insights_service import InsightsService
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & Insights"])
@@ -56,3 +58,28 @@ async def get_spending_insights(
         month=month,
         year=year
     )
+
+
+@router.get(
+    "/cashflow",
+    response_model=CashflowOverviewResponse,
+    summary="Retrieve Monthly Cashflow and Financial Health Overview",
+    description=(
+        "Computes exact monthly income, expenses, net cashflow, savings rate, "
+        "remaining budget, financial health evaluation, and daily trends."
+    )
+)
+def get_cashflow_overview(
+    month: Optional[int] = Query(None, ge=1, le=12, description="Target month (1-12)"),
+    year: Optional[int] = Query(None, ge=2020, le=2100, description="Target year"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> CashflowOverviewResponse:
+    from app.services.cashflow_service import CashflowService
+    return CashflowService.get_cashflow_overview(
+        db=db,
+        user_id=current_user.id,
+        month=month,
+        year=year
+    )
+

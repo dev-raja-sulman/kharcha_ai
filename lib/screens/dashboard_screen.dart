@@ -17,8 +17,14 @@ import 'package:kharcha_ai/services/budget_service.dart';
 import 'package:kharcha_ai/services/expense_service.dart';
 import 'package:kharcha_ai/services/receipt_service.dart';
 import 'package:kharcha_ai/services/recurring_service.dart';
+import 'package:kharcha_ai/models/cashflow_model.dart';
+
+import 'package:kharcha_ai/screens/income_screen.dart';
+import 'package:kharcha_ai/services/cashflow_service.dart';
+import 'package:kharcha_ai/services/income_service.dart';
 import 'package:kharcha_ai/services/report_service.dart';
 import 'package:kharcha_ai/widgets/add_expense_sheet.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   final AuthService authService;
@@ -38,10 +44,13 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late final ExpenseService _expenseService;
+  late final CashflowService _cashflowService;
+  late final IncomeService _incomeService;
   late UserModel? _currentUser;
 
   bool _isLoading = false;
   ExpenseSummaryModel? _summary;
+  CashflowOverviewModel? _cashflow;
   List<ExpenseModel> _expenses = [];
   String _selectedCategoryFilter = 'All';
 
@@ -65,6 +74,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _currentUser = widget.initialUser;
     _expenseService = widget.expenseService ??
         ExpenseService(apiClient: widget.authService.apiClient);
+    _cashflowService = CashflowService(apiClient: widget.authService.apiClient);
+    _incomeService = IncomeService(apiClient: widget.authService.apiClient);
 
     _loadDashboardData();
   }
@@ -82,6 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           category: _selectedCategoryFilter == 'All' ? null : _selectedCategoryFilter,
           limit: 30,
         ),
+        _cashflowService.getCashflowOverview(),
       ]);
 
       if (!mounted) return;
@@ -90,10 +102,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _currentUser ??= futures[0] as UserModel;
         _summary = futures[1] as ExpenseSummaryModel;
         _expenses = futures[2] as List<ExpenseModel>;
+        _cashflow = futures[3] as CashflowOverviewModel;
       });
     } catch (_) {
       // Errors handled gracefully, network retry available via pull-to-refresh
     } finally {
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -231,6 +245,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  void _openIncomeScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => IncomeScreen(incomeService: _incomeService),
+      ),
+    ).then((_) => _loadDashboardData());
+  }
+
 
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
@@ -492,7 +516,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.arrow_downward, color: Color(0xFF2E7D32)),
+            tooltip: 'Income Management',
+            onPressed: _openIncomeScreen,
+          ),
+          IconButton(
             icon: const Icon(Icons.document_scanner_outlined, color: AppColors.primary),
+
             tooltip: 'Scan Receipt with AI',
             onPressed: _openScanReceiptScreen,
           ),
@@ -681,13 +711,181 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Phase 5 Quick Action Shortcuts
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
+                    // Cashflow & Financial Health Overview Card
+                    if (_cashflow != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _cashflow!.healthStatus == 'surplus'
+                                ? const Color(0xFFC8E6C9)
+                                : _cashflow!.healthStatus == 'deficit'
+                                    ? const Color(0xFFFFCDD2)
+                                    : AppColors.cardBorder,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _cashflow!.healthStatus == 'surplus'
+                                          ? Icons.check_circle_outline
+                                          : _cashflow!.healthStatus == 'deficit'
+                                              ? Icons.warning_amber_rounded
+                                              : Icons.info_outline,
+                                      size: 18,
+                                      color: _cashflow!.healthStatus == 'surplus'
+                                          ? const Color(0xFF2E7D32)
+                                          : _cashflow!.healthStatus == 'deficit'
+                                              ? AppColors.error
+                                              : AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _cashflow!.healthTitle,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: _cashflow!.healthStatus == 'surplus'
+                                            ? const Color(0xFF2E7D32)
+                                            : _cashflow!.healthStatus == 'deficit'
+                                                ? AppColors.error
+                                                : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8F5E9),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Savings: ${_cashflow!.savingsRate.toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2E7D32),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Income',
+                                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'PKR ${_cashflow!.totalIncome.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2E7D32),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Expenses',
+                                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'PKR ${_cashflow!.totalExpenses.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.error,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Net Cashflow',
+                                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_cashflow!.netCashflow >= 0 ? '+' : ''}PKR ${_cashflow!.netCashflow.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: _cashflow!.netCashflow >= 0
+                                              ? const Color(0xFF2E7D32)
+                                              : AppColors.error,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_cashflow!.healthSummary.isNotEmpty) ...[
+                              const Divider(height: 20),
+                              Text(
+                                _cashflow!.healthSummary,
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+
+                    // Quick Action Shortcuts
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.arrow_downward, size: 16, color: Color(0xFF2E7D32)),
+                            label: const Text('Income', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openIncomeScreen,
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               side: const BorderSide(color: Color(0xFFE2E8F0)),
                               backgroundColor: Colors.white,
                             ),
@@ -695,12 +893,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             label: const Text('Recurring', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
                             onPressed: _openRecurringScreen,
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               side: const BorderSide(color: Color(0xFFE2E8F0)),
                               backgroundColor: Colors.white,
                             ),
@@ -708,10 +904,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             label: const Text('Reports', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
                             onPressed: _openReportsScreen,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.pie_chart_outline, size: 16, color: Colors.orange),
+                            label: const Text('Budgets', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openBudgetScreen,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 18),
+
 
                     // Category Filter Pills
                     SizedBox(
