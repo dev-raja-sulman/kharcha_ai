@@ -192,3 +192,89 @@ def test_reports_cross_user_isolation(client):
     assert resp2.status_code == 200
     assert Decimal(str(resp2.json()["total_expenditure"])) == Decimal("0.00")
     assert resp2.json()["total_expenses"] == 0
+
+
+def test_invalid_date_range_rejected_422(client):
+    token = get_auth_token(client, "invalid_range_user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Custom report with end_date earlier than start_date
+    resp = client.get(
+        "/api/v1/reports?report_type=custom&start_date=2026-06-30&end_date=2026-06-01",
+        headers=headers
+    )
+    assert resp.status_code == 422
+    assert "cannot be earlier than start date" in resp.json()["detail"].lower()
+
+
+def test_category_filtered_report(client):
+    token = get_auth_token(client, "cat_filter_user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add Food expense (2,500) and Transport expense (1,200)
+    client.post("/api/v1/expenses", headers=headers, json={
+        "title": "Dinner Restaurant",
+        "amount": 2500.00,
+        "category": "Food",
+        "expense_date": "2026-08-10"
+    })
+    client.post("/api/v1/expenses", headers=headers, json={
+        "title": "Taxi Ride",
+        "amount": 1200.00,
+        "category": "Transport",
+        "expense_date": "2026-08-11"
+    })
+
+    # Fetch report filtered strictly by category=Food
+    resp = client.get(
+        "/api/v1/reports?report_type=monthly&year=2026&month=8&category=Food",
+        headers=headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert Decimal(str(data["total_expenditure"])) == Decimal("2500.00")
+    assert data["total_expenses"] == 1
+    assert len(data["category_breakdown"]) == 1
+    assert data["category_breakdown"][0]["category"] == "Food"
+    assert Decimal(str(data["category_breakdown"][0]["total_amount"])) == Decimal("2500.00")
+
+
+def test_daily_weekly_yearly_report_types(client):
+    token = get_auth_token(client, "periods_user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add expense
+    client.post("/api/v1/expenses", headers=headers, json={
+        "title": "Annual Insurance",
+        "amount": 15000.00,
+        "category": "Bills",
+        "expense_date": "2026-03-15"
+    })
+
+    # 1. Daily Report
+    resp_daily = client.get(
+        "/api/v1/reports?report_type=daily&start_date=2026-03-15",
+        headers=headers
+    )
+    assert resp_daily.status_code == 200
+    assert resp_daily.json()["report_type"] == "daily"
+    assert Decimal(str(resp_daily.json()["total_expenditure"])) == Decimal("15000.00")
+
+    # 2. Weekly Report
+    resp_weekly = client.get(
+        "/api/v1/reports?report_type=weekly&start_date=2026-03-09&end_date=2026-03-15",
+        headers=headers
+    )
+    assert resp_weekly.status_code == 200
+    assert resp_weekly.json()["report_type"] == "weekly"
+    assert Decimal(str(resp_weekly.json()["total_expenditure"])) == Decimal("15000.00")
+
+    # 3. Yearly Report
+    resp_yearly = client.get(
+        "/api/v1/reports?report_type=yearly&year=2026",
+        headers=headers
+    )
+    assert resp_yearly.status_code == 200
+    assert resp_yearly.json()["report_type"] == "yearly"
+    assert Decimal(str(resp_yearly.json()["total_expenditure"])) == Decimal("15000.00")
+

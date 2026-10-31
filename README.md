@@ -64,7 +64,7 @@ Karcha AI App/
 │   │   └── export_service.py            # UTF-8 BOM CSV generation with injection defense & ReportLab PDF layout
 │   ├── static/
 │   │   └── web_app.html                 # Interactive visual console (Receipt scan, Budgets, Analytics, Recurring, Reports & PDF/CSV)
-│   ├── tests/                           # Pytest automated test suite (53 passed)
+│   ├── tests/                           # Pytest automated test suite (58 passed)
 │   │   ├── conftest.py                  # In-memory test SQLite session & client fixture
 │   │   ├── test_health.py               # Health endpoint test
 │   │   ├── test_auth.py                 # 9 security & auth tests
@@ -72,8 +72,8 @@ Karcha AI App/
 │   │   ├── test_receipts.py             # 11 receipt scanning, validation & confirmation tests
 │   │   ├── test_budgets.py              # 7 budget CRUD, validation, calculation & alert tests
 │   │   ├── test_analytics.py            # 4 spending analytics, MoM comparison & AI insights tests
-│   │   ├── test_recurring.py            # 7 recurring rules, date calculations & idempotency tests
-│   │   └── test_reports.py              # 6 advanced reports, CSV injection guard & PDF export tests
+│   │   ├── test_recurring.py            # 9 recurring rules, date calculations & idempotency tests
+│   │   └── test_reports.py              # 9 advanced reports, CSV injection guard & PDF export tests
 │   └── main.py                          # FastAPI application factory, CORS, startup scheduler & /health
 ├── lib/                                 # KharchaAI Flutter Frontend
 │   ├── core/
@@ -235,7 +235,7 @@ python -m alembic current
 
 ## 🧪 Automated Test Results
 
-### 1. Backend Pytest Suite (53 Passed)
+### 1. Backend Pytest Suite (58 Passed)
 Run backend tests:
 ```powershell
 python -m pytest app/tests -v
@@ -247,9 +247,9 @@ app/tests/test_health.py (2 tests) ....................... PASSED
 app/tests/test_receipts.py (11 tests) .................... PASSED
 app/tests/test_budgets.py (7 tests) ...................... PASSED
 app/tests/test_analytics.py (4 tests) .................... PASSED
-app/tests/test_recurring.py (7 tests) .................... PASSED
-app/tests/test_reports.py (6 tests) ...................... PASSED
-======================= 53 passed in 44.12s =======================
+app/tests/test_recurring.py (9 tests) .................... PASSED
+app/tests/test_reports.py (9 tests) ...................... PASSED
+======================= 58 passed in 36.76s =======================
 ```
 
 ### 2. Live End-to-End API Integration (40 Passed)

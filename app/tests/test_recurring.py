@@ -228,3 +228,66 @@ def test_cross_user_isolation(client):
         headers={"Authorization": f"Bearer {token_b}"}
     )
     assert pause_resp.status_code == 404
+
+
+def test_future_start_date_not_prematurely_generated(client):
+    token = get_auth_token(client, "future_user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    tomorrow = date.today() + timedelta(days=1)
+    create_resp = client.post("/api/v1/recurring-expenses", headers=headers, json={
+        "title": "Future Streaming Service",
+        "amount": 1500.00,
+        "category": "Entertainment",
+        "frequency": "monthly",
+        "start_date": tomorrow.isoformat()
+    })
+    assert create_resp.status_code == 201
+    rule_data = create_resp.json()
+    assert rule_data["next_scheduled_date"] == tomorrow.isoformat()
+
+    # Process due expenses as of today: 0 should be generated
+    proc = client.post("/api/v1/recurring-expenses/process", headers=headers)
+    assert proc.status_code == 200
+    assert proc.json()["generated_count"] == 0
+
+    # Rule history should be empty
+    history = client.get(f"/api/v1/recurring-expenses/{rule_data['id']}/history", headers=headers).json()
+    assert len(history) == 0
+
+
+def test_update_recurring_rule_and_validation(client):
+    token = get_auth_token(client, "update_rule_user@test.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_resp = client.post("/api/v1/recurring-expenses", headers=headers, json={
+        "title": "Initial Monthly Plan",
+        "amount": 2000.00,
+        "category": "Bills",
+        "frequency": "monthly",
+        "start_date": "2026-01-01"
+    })
+    rule_id = create_resp.json()["id"]
+
+    # Valid update
+    update_resp = client.put(f"/api/v1/recurring-expenses/{rule_id}", headers=headers, json={
+        "title": "Upgraded Yearly Plan",
+        "amount": 22000.00,
+        "category": "Education",
+        "frequency": "yearly",
+        "end_date": "2028-12-31"
+    })
+    assert update_resp.status_code == 200
+    updated = update_resp.json()
+    assert updated["title"] == "Upgraded Yearly Plan"
+    assert Decimal(str(updated["amount"])) == Decimal("22000.00")
+    assert updated["category"] == "Education"
+    assert updated["frequency"] == "yearly"
+    assert updated["end_date"] == "2028-12-31"
+
+    # Invalid end date earlier than start date
+    bad_update = client.put(f"/api/v1/recurring-expenses/{rule_id}", headers=headers, json={
+        "end_date": "2025-01-01"
+    })
+    assert bad_update.status_code == 422
+
