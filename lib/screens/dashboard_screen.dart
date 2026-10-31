@@ -20,10 +20,13 @@ import 'package:kharcha_ai/services/recurring_service.dart';
 import 'package:kharcha_ai/models/cashflow_model.dart';
 
 import 'package:kharcha_ai/screens/income_screen.dart';
+import 'package:kharcha_ai/screens/savings_goals_screen.dart';
 import 'package:kharcha_ai/services/cashflow_service.dart';
 import 'package:kharcha_ai/services/income_service.dart';
+import 'package:kharcha_ai/services/saving_service.dart';
 import 'package:kharcha_ai/services/report_service.dart';
 import 'package:kharcha_ai/widgets/add_expense_sheet.dart';
+
 
 
 class DashboardScreen extends StatefulWidget {
@@ -46,7 +49,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final ExpenseService _expenseService;
   late final CashflowService _cashflowService;
   late final IncomeService _incomeService;
+  late final SavingService _savingService;
   late UserModel? _currentUser;
+
 
   bool _isLoading = false;
   ExpenseSummaryModel? _summary;
@@ -76,6 +81,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ExpenseService(apiClient: widget.authService.apiClient);
     _cashflowService = CashflowService(apiClient: widget.authService.apiClient);
     _incomeService = IncomeService(apiClient: widget.authService.apiClient);
+    _savingService = SavingService(apiClient: widget.authService.apiClient);
+
 
     _loadDashboardData();
   }
@@ -254,6 +261,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ).then((_) => _loadDashboardData());
   }
+
+  void _openSavingsGoalsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SavingsGoalsScreen(savingService: _savingService),
+      ),
+    ).then((_) => _loadDashboardData());
+  }
+
 
 
   Future<void> _handleLogout() async {
@@ -915,8 +932,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             label: const Text('Budgets', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
                             onPressed: _openBudgetScreen,
                           ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.savings_outlined, size: 16, color: Color(0xFF1565C0)),
+                            label: const Text('Goals', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openSavingsGoalsScreen,
+                          ),
                         ],
                       ),
+
                     ),
                     const SizedBox(height: 18),
 

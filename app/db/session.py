@@ -9,6 +9,8 @@ from app.models.expense import Expense  # noqa: F401
 from app.models.budget import Budget  # noqa: F401
 from app.models.recurring_expense import RecurringExpense  # noqa: F401
 from app.models.income import Income, IncomeSource  # noqa: F401
+from app.models.saving_goal import SavingGoal, SavingContribution  # noqa: F401
+
 
 # Configure connection arguments (check_same_thread needed for SQLite)
 connect_args = {}
