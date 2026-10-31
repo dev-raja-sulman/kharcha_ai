@@ -20,10 +20,12 @@ import 'package:kharcha_ai/services/recurring_service.dart';
 import 'package:kharcha_ai/models/cashflow_model.dart';
 
 import 'package:kharcha_ai/screens/bills_screen.dart';
+import 'package:kharcha_ai/screens/financial_advisor_screen.dart';
 import 'package:kharcha_ai/screens/income_screen.dart';
 import 'package:kharcha_ai/screens/savings_goals_screen.dart';
 import 'package:kharcha_ai/services/bill_service.dart';
 import 'package:kharcha_ai/services/cashflow_service.dart';
+import 'package:kharcha_ai/services/financial_advisor_service.dart';
 import 'package:kharcha_ai/services/income_service.dart';
 import 'package:kharcha_ai/services/saving_service.dart';
 import 'package:kharcha_ai/services/report_service.dart';
@@ -53,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final IncomeService _incomeService;
   late final SavingService _savingService;
   late final BillService _billService;
+  late final FinancialAdvisorService _advisorService;
   late UserModel? _currentUser;
 
 
@@ -86,6 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _incomeService = IncomeService(apiClient: widget.authService.apiClient);
     _savingService = SavingService(apiClient: widget.authService.apiClient);
     _billService = BillService(apiClient: widget.authService.apiClient);
+    _advisorService = FinancialAdvisorService(apiClient: widget.authService.apiClient);
 
 
     _loadDashboardData();
@@ -283,6 +287,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ).then((_) => _loadDashboardData());
   }
+
+  void _openAdvisorScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FinancialAdvisorScreen(advisorService: _advisorService),
+      ),
+    ).then((_) => _loadDashboardData());
+  }
+
 
 
 
@@ -966,6 +980,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             icon: const Icon(Icons.receipt_long_outlined, size: 16, color: Color(0xFF7C3AED)),
                             label: const Text('Bills', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
                             onPressed: _openBillsScreen,
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.auto_awesome, size: 16, color: AppColors.primary),
+                            label: const Text('Advisor', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                            onPressed: _openAdvisorScreen,
                           ),
                         ],
                       ),
