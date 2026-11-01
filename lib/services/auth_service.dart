@@ -137,6 +137,98 @@ class AuthService {
     return await _storage.hasToken();
   }
 
+  SecureStorageService get storage => _storage;
+
+  /// Request 6-digit OTP for password reset
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.forgotPasswordUrl,
+        data: {'email': email.trim().toLowerCase()},
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Forgot password request failed: ${e.toString()}');
+    }
+  }
+
+  /// Verify 6-digit OTP
+  Future<bool> verifyOtp({required String email, required String otp}) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.verifyOtpUrl,
+        data: {
+          'email': email.trim().toLowerCase(),
+          'otp': otp.trim(),
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      return data['valid'] == true;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'OTP verification failed: ${e.toString()}');
+    }
+  }
+
+  /// Reset password using verified OTP
+  Future<UserModel> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.resetPasswordUrl,
+        data: {
+          'email': email.trim().toLowerCase(),
+          'otp': otp.trim(),
+          'new_password': newPassword,
+        },
+      );
+      final authResponse = AuthResponse.fromJson(response.data as Map<String, dynamic>);
+      await _storage.saveToken(authResponse.accessToken);
+      return authResponse.user;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Password reset failed: ${e.toString()}');
+    }
+  }
+
+  /// Social Login via Google or Apple
+  Future<UserModel> socialLogin({
+    required String provider,
+    required String email,
+    String? name,
+    String? token,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.socialLoginUrl,
+        data: {
+          'provider': provider,
+          'email': email.trim().toLowerCase(),
+          if (name != null) 'name': name.trim(),
+          if (token != null) 'token': token,
+        },
+      );
+      final authResponse = AuthResponse.fromJson(response.data as Map<String, dynamic>);
+      await _storage.saveToken(authResponse.accessToken);
+      return authResponse.user;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: '$provider sign-in failed: ${e.toString()}');
+    }
+  }
+
   /// Check backend health status
   Future<Map<String, dynamic>> checkHealth() async {
     try {

@@ -6,6 +6,7 @@ from app.models.income import Income, IncomeSource
 from app.models.saving_goal import SavingContribution, SavingGoal
 from app.models.bill import Bill
 from app.models.currency import ExchangeRate, SupportedCurrency
+from app.models.otp import PasswordResetOTP
 
 __all__ = [
     "User",
@@ -19,4 +20,5 @@ __all__ = [
     "Bill",
     "ExchangeRate",
     "SupportedCurrency",
+    "PasswordResetOTP",
 ]

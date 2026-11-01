@@ -62,4 +62,49 @@ class SecureStorageService {
       await deleteToken();
     }
   }
+
+  // Biometrics & Remember Me Preferences
+  static const String _rememberEmailKey = 'kharcha_remember_email';
+  static const String _biometricEnabledKey = 'kharcha_biometric_enabled';
+  static const String _biometricUserEmailKey = 'kharcha_biometric_user_email';
+
+  Future<void> saveRememberedEmail(String? email) async {
+    if (email != null && email.isNotEmpty) {
+      await _storage.write(key: _rememberEmailKey, value: email);
+    } else {
+      await _storage.delete(key: _rememberEmailKey);
+    }
+  }
+
+  Future<String?> getRememberedEmail() async {
+    try {
+      return await _storage.read(key: _rememberEmailKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setBiometricEnabled(bool enabled, {String? email}) async {
+    await _storage.write(key: _biometricEnabledKey, value: enabled ? 'true' : 'false');
+    if (email != null) {
+      await _storage.write(key: _biometricUserEmailKey, value: email);
+    }
+  }
+
+  Future<bool> isBiometricEnabled() async {
+    try {
+      final val = await _storage.read(key: _biometricEnabledKey);
+      return val == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> getBiometricEmail() async {
+    try {
+      return await _storage.read(key: _biometricUserEmailKey);
+    } catch (_) {
+      return null;
+    }
+  }
 }

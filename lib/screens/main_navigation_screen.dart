@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/models/user_model.dart';
 import 'package:kharcha_ai/screens/analytics_screen.dart';
 import 'package:kharcha_ai/screens/dashboard_screen.dart';
@@ -59,8 +58,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    // 5 tabs matching Screenshot 3:
+    // 0: Home, 1: Activity, 2: Advisor, 3: Insights, 4: Settings
     final pages = [
       DashboardScreen(
         authService: widget.authService,
@@ -73,11 +72,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         incomeService: _incomeService,
         currentUser: _currentUser,
       ),
-      AnalyticsScreen(
-        analyticsService: _analyticsService,
-      ),
       FinancialAdvisorScreen(
         advisorService: _advisorService,
+        preferredCurrency: _currentUser?.preferredCurrency,
+      ),
+      AnalyticsScreen(
+        analyticsService: _analyticsService,
       ),
       ProfileScreen(
         authService: widget.authService,
@@ -91,62 +91,108 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         children: pages,
       ),
       bottomNavigationBar: Container(
+        height: 68,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder,
-              width: 1,
-            ),
+          color: Colors.white,
+          border: const Border(
+            top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
+              _buildNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Activity'),
+              _buildCenterAdvisorItem(2),
+              _buildNavItem(3, Icons.insights_rounded, Icons.insights_rounded, 'Insights'),
+              _buildNavItem(4, Icons.tune_rounded, Icons.tune_rounded, 'Settings'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData unselectedIcon, IconData selectedIcon, String label) {
+    final isSelected = _currentIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = index),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : unselectedIcon,
+              size: 24,
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.swap_horiz_rounded),
-              activeIcon: Icon(Icons.swap_horizontal_circle_rounded),
-              label: 'Transactions',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.pie_chart_outline_rounded),
-              activeIcon: Icon(Icons.pie_chart_rounded),
-              label: 'Analytics',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome_rounded),
-              label: 'AI Advisor',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Elevated Glowing Center Advisor Icon (Screenshot 3)
+  Widget _buildCenterAdvisorItem(int index) {
+    final isSelected = _currentIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentIndex = index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withOpacity(isSelected ? 0.45 : 0.25),
+                  blurRadius: isSelected ? 12 : 6,
+                  spreadRadius: isSelected ? 2 : 0,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Advisor',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+            ),
+          ),
+        ],
       ),
     );
   }

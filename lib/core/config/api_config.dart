@@ -59,6 +59,10 @@ class ApiConfig {
   static String get healthUrl => '$baseUrl/health';
   static String get registerUrl => '$baseUrl/api/v1/auth/register';
   static String get loginUrl => '$baseUrl/api/v1/auth/login';
+  static String get forgotPasswordUrl => '$baseUrl/api/v1/auth/forgot-password';
+  static String get verifyOtpUrl => '$baseUrl/api/v1/auth/verify-otp';
+  static String get resetPasswordUrl => '$baseUrl/api/v1/auth/reset-password';
+  static String get socialLoginUrl => '$baseUrl/api/v1/auth/social-login';
   static String get meUrl => '$baseUrl/api/v1/auth/me';
   static String get currencyUrl => '$baseUrl/api/v1/auth/currency';
   static String get expensesUrl => '$baseUrl/api/v1/expenses';

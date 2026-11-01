@@ -6,12 +6,18 @@ from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    SocialLoginRequest,
     TokenResponse,
     UserCurrencyUpdateRequest,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
     UserUpdateRequest,
+    VerifyOtpRequest,
+    VerifyOtpResponse,
 )
 from app.services.auth_service import AuthService
 
@@ -138,3 +144,99 @@ def update_currency_preference(
         currency=req.currency
     )
     return UserResponse.model_validate(updated_user)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request a 6-digit OTP code to reset password"
+)
+def forgot_password(
+    req: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+) -> ForgotPasswordResponse:
+    """
+    Generates a secure 6-digit OTP for the registered email address.
+    """
+    record, code = AuthService.generate_password_reset_otp(db, req.email)
+    return ForgotPasswordResponse(
+        message="A 6-digit verification code has been generated for your account.",
+        email=req.email,
+        expires_in_seconds=600,
+        dev_otp=code
+    )
+
+
+@router.post(
+    "/verify-otp",
+    response_model=VerifyOtpResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify 6-digit password reset OTP"
+)
+def verify_otp(
+    req: VerifyOtpRequest,
+    db: Session = Depends(get_db)
+) -> VerifyOtpResponse:
+    """
+    Validates that the provided 6-digit OTP is correct and has not expired.
+    """
+    AuthService.verify_password_reset_otp(db, req.email, req.otp)
+    return VerifyOtpResponse(
+        valid=True,
+        message="Verification code is valid. You may now reset your password."
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset password using verified OTP"
+)
+def reset_password(
+    req: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+) -> TokenResponse:
+    """
+    Resets the account password and automatically logs the user in with a new JWT access token.
+    """
+    user = AuthService.reset_password_with_otp(
+        db=db,
+        email=req.email,
+        otp=req.otp,
+        new_password=req.new_password
+    )
+    token = create_access_token(subject=user.email)
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
+    )
+
+
+@router.post(
+    "/social-login",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Authenticate or register using Google or Apple sign-in"
+)
+def social_login(
+    req: SocialLoginRequest,
+    db: Session = Depends(get_db)
+) -> TokenResponse:
+    """
+    Handles 1-tap sign-in and account provisioning for Google and Apple identities.
+    """
+    user = AuthService.authenticate_or_create_social_user(
+        db=db,
+        provider=req.provider,
+        email=req.email,
+        name=req.name
+    )
+    token = create_access_token(subject=user.email)
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
+    )

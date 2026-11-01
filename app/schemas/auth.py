@@ -64,6 +64,64 @@ class UserLoginRequest(BaseModel):
     password: str = Field(..., description="Account password")
 
 
+class ForgotPasswordRequest(BaseModel):
+    """
+    Schema for requesting a 6-digit password reset OTP to email.
+    """
+    email: EmailStr = Field(..., description="Email address associated with the account")
+
+
+class ForgotPasswordResponse(BaseModel):
+    """
+    Response confirming OTP generation.
+    """
+    message: str
+    email: str
+    expires_in_seconds: int = 600
+    # For convenient dev/testing mode on local/staging
+    dev_otp: Optional[str] = None
+
+
+class VerifyOtpRequest(BaseModel):
+    """
+    Schema for verifying the 6-digit OTP code sent to user email.
+    """
+    email: EmailStr = Field(..., description="User email address")
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+
+
+class VerifyOtpResponse(BaseModel):
+    """
+    Response for OTP verification.
+    """
+    valid: bool
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """
+    Schema for finalizing password reset using verified OTP.
+    """
+    email: EmailStr = Field(..., description="User email address")
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+    new_password: str = Field(
+        ...,
+        min_length=6,
+        max_length=128,
+        description="New password (minimum 6 characters)"
+    )
+
+
+class SocialLoginRequest(BaseModel):
+    """
+    Schema for Google and Apple social sign-in.
+    """
+    provider: str = Field(..., description="Provider name ('google' or 'apple')")
+    email: EmailStr = Field(..., description="User email verified by provider")
+    name: Optional[str] = Field(None, description="User full name from provider profile")
+    token: Optional[str] = Field(None, description="OAuth ID token or provider user ID")
+
+
 # ---------------------------------------------------------------------------
 # Response Schemas
 # ---------------------------------------------------------------------------
