@@ -62,16 +62,33 @@ class Settings(BaseSettings):
 
     # Email & SMTP Delivery Configuration
     # Supports Gmail, Outlook, Yahoo, SendGrid, Resend, or custom SMTP
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_SERVER: str = os.getenv("SMTP_SERVER", os.getenv("SMTP_HOST", "smtp.gmail.com"))
+    SMTP_HOST: str = os.getenv("SMTP_HOST", os.getenv("SMTP_SERVER", "smtp.gmail.com"))
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_EMAIL: str = os.getenv("SMTP_EMAIL", os.getenv("SMTP_USER", ""))
+    SMTP_USER: str = os.getenv("SMTP_USER", os.getenv("SMTP_EMAIL", ""))
+    SMTP_APP_PASSWORD: str = os.getenv("SMTP_APP_PASSWORD", os.getenv("SMTP_PASSWORD", ""))
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", os.getenv("SMTP_APP_PASSWORD", ""))
     EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "")
     EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "KharchaAI Security")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
     SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+
+    @property
+    def effective_smtp_server(self) -> str:
+        return (self.SMTP_SERVER or self.SMTP_HOST or "smtp.gmail.com").strip()
+
+    @property
+    def effective_smtp_email(self) -> str:
+        return (self.SMTP_EMAIL or self.SMTP_USER or "").strip()
+
+    @property
+    def effective_smtp_password(self) -> str:
+        # Strip spaces because Google displays App Passwords as 'abcd efgh ijkl mnop'
+        raw = self.SMTP_APP_PASSWORD or self.SMTP_PASSWORD or ""
+        return raw.replace(" ", "").strip()
 
     # OTP Security Parameters
     OTP_EXPIRE_MINUTES: int = 5          # Exact 5 minutes validity

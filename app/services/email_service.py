@@ -245,9 +245,10 @@ Smart Financial Tracking & AI Wealth Management
         # -------------------------------------------------------------------
         # 3. Dispatch via SMTP (Gmail, Outlook, Yahoo, or Custom SMTP)
         # -------------------------------------------------------------------
-        smtp_user = settings.SMTP_USER.strip()
-        smtp_pwd = settings.SMTP_PASSWORD.strip()
-        smtp_host = settings.SMTP_HOST.strip()
+        smtp_user = settings.effective_smtp_email
+        smtp_pwd = settings.effective_smtp_password
+        smtp_host = settings.effective_smtp_server
+        smtp_port = settings.SMTP_PORT
 
         # If SMTP is NOT configured, do NOT show a false success
         if not smtp_user or not smtp_pwd:
@@ -258,8 +259,8 @@ Smart Financial Tracking & AI Wealth Management
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=(
-                    "EMAIL_NOT_CONFIGURED: Mail delivery credentials are not set up. "
-                    "Please configure SMTP_USER and SMTP_PASSWORD in your .env file."
+                    "EMAIL_NOT_CONFIGURED: Gmail SMTP credentials are not configured in .env. "
+                    "Please set SMTP_EMAIL and SMTP_APP_PASSWORD in your backend .env file."
                 )
             )
 
