@@ -14,7 +14,7 @@ class ApiConfig {
   static const String loopbackHost = 'http://127.0.0.1:8000';
   
   // Reachable local network IP for physical mobile device testing
-  static const String physicalDeviceHost = 'http://192.168.1.13:8000';
+  static const String physicalDeviceHost = 'http://192.168.2.44:8000';
   
   // Production URL (HTTPS) - Render Free Deployment
   static const String productionHost = 'https://kharcha-ai-backend.onrender.com';
@@ -58,6 +58,8 @@ class ApiConfig {
   // API Endpoints
   static String get healthUrl => '$baseUrl/health';
   static String get registerUrl => '$baseUrl/api/v1/auth/register';
+  static String get verifyEmailUrl => '$baseUrl/api/v1/auth/verify-email';
+  static String get resendOtpUrl => '$baseUrl/api/v1/auth/resend-otp';
   static String get loginUrl => '$baseUrl/api/v1/auth/login';
   static String get forgotPasswordUrl => '$baseUrl/api/v1/auth/forgot-password';
   static String get verifyOtpUrl => '$baseUrl/api/v1/auth/verify-otp';

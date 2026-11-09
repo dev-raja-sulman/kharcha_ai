@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kharcha_ai/core/constants/app_colors.dart';
 import 'package:kharcha_ai/core/network/api_exception.dart';
 import 'package:kharcha_ai/screens/main_navigation_screen.dart';
+import 'package:kharcha_ai/screens/verify_email_screen.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -46,8 +47,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await widget.authService.register(
-        email: _emailController.text.trim(),
+      final email = _emailController.text.trim();
+      await widget.authService.register(
+        email: email,
         password: _passwordController.text,
         fullName: _nameController.text.trim().isNotEmpty
             ? _nameController.text.trim()
@@ -57,22 +59,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Account created! Welcome, ${user.displayName}.'),
+        const SnackBar(
+          content: Text('Account created! Please enter the 6-digit verification code sent to your email.'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
       );
 
-      Navigator.pushAndRemoveUntil(
+      Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MainNavigationScreen(
+          builder: (_) => VerifyEmailScreen(
             authService: widget.authService,
-            initialUser: user,
+            email: email,
           ),
         ),
-        (route) => false,
       );
     } on ApiException catch (e) {
       setState(() => _errorMessage = e.message);

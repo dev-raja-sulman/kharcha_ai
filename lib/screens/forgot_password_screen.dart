@@ -34,7 +34,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
-  String? _devOtp;
 
   // Resend Countdown
   int _resendTimer = 60;
@@ -95,23 +94,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
-      final res = await widget.authService.forgotPassword(email);
+      await widget.authService.forgotPassword(email);
       if (!mounted) return;
 
       setState(() {
         _currentStep = 1;
-        _devOtp = res['dev_otp'] as String?;
       });
       _startResendTimer();
-
-      // If dev OTP is available in local/testing response, auto-populate for frictionless dev testing
-      if (_devOtp != null && _devOtp!.length == 6) {
-        for (int i = 0; i < 6; i++) {
-          _otpControllers[i].text = _devOtp![i];
-        }
-      } else {
-        _otpFocusNodes[0].requestFocus();
-      }
+      _otpFocusNodes[0].requestFocus();
     } on ApiException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (_) {
@@ -460,31 +450,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           'We sent a verification code to ${_emailController.text}. Enter it below:',
           style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B), height: 1.4),
         ),
-        if (_devOtp != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, color: Color(0xFF2563EB), size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'OTP Code: $_devOtp',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1D4ED8),
-                  ),
-                ),
-              ],
-            ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFDE68A)),
           ),
-        ],
+          child: const Row(
+            children: [
+              Icon(Icons.timer_outlined, color: Color(0xFFD97706), size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Code expires in 5 minutes',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
         // 6 digit PIN input row
         Row(

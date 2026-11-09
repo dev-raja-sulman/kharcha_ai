@@ -47,6 +47,53 @@ class AuthService {
     }
   }
 
+  /// Verify email with 6-digit OTP code sent during registration
+  Future<UserModel> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.verifyEmailUrl,
+        data: {
+          'email': email.trim().toLowerCase(),
+          'otp': otp.trim(),
+        },
+      );
+
+      final authResponse = AuthResponse.fromJson(response.data as Map<String, dynamic>);
+      await _storage.saveToken(authResponse.accessToken);
+      return authResponse.user;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Email verification failed: ${e.toString()}');
+    }
+  }
+
+  /// Resend a 6-digit OTP verification code (supports registration or password_reset)
+  Future<Map<String, dynamic>> resendOtp({
+    required String email,
+    String purpose = 'registration',
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiConfig.resendOtpUrl,
+        data: {
+          'email': email.trim().toLowerCase(),
+          'purpose': purpose,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Could not resend verification code: ${e.toString()}');
+    }
+  }
+
   /// Authenticate an existing account on KharchaAI backend
   Future<UserModel> login({
     required String email,

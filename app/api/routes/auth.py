@@ -8,6 +8,8 @@ from app.models.user import User
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    ResendOtpRequest,
+    ResendOtpResponse,
     ResetPasswordRequest,
     SocialLoginRequest,
     TokenResponse,
@@ -16,6 +18,7 @@ from app.schemas.auth import (
     UserRegisterRequest,
     UserResponse,
     UserUpdateRequest,
+    VerifyEmailRequest,
     VerifyOtpRequest,
     VerifyOtpResponse,
 )
@@ -36,7 +39,8 @@ def register(
 ) -> TokenResponse:
     """
     Register a new user with email, password, and optional full name.
-    Returns the created user profile and a JWT access token.
+    Dispatches a 6-digit verification code to the entered email address.
+    Returns the user profile with is_email_verified=False and a pending JWT access token.
     """
     user = AuthService.register_user(db, req)
     token = create_access_token(subject=user.email)
@@ -45,6 +49,51 @@ def register(
         access_token=token,
         token_type="bearer",
         user=UserResponse.model_validate(user)
+    )
+
+
+@router.post(
+    "/verify-email",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify user email address using 6-digit OTP"
+)
+def verify_email(
+    req: VerifyEmailRequest,
+    db: Session = Depends(get_db)
+) -> TokenResponse:
+    """
+    Verifies the user's email with the 6-digit OTP code sent to their inbox.
+    Activates the account and unlocks protected features.
+    """
+    user = AuthService.verify_email_otp(db, req.email, req.otp)
+    token = create_access_token(subject=user.email)
+
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
+    )
+
+
+@router.post(
+    "/resend-otp",
+    response_model=ResendOtpResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Resend a 6-digit verification OTP code"
+)
+def resend_otp(
+    req: ResendOtpRequest,
+    db: Session = Depends(get_db)
+) -> ResendOtpResponse:
+    """
+    Dispatches a new 6-digit verification code with 60-second cooldown enforcement.
+    """
+    AuthService.resend_verification_otp(db, req.email, req.purpose)
+    return ResendOtpResponse(
+        message="A new 6-digit verification code has been sent to your email address.",
+        email=req.email,
+        cooldown_seconds=60
     )
 
 
@@ -158,13 +207,13 @@ def forgot_password(
 ) -> ForgotPasswordResponse:
     """
     Generates a secure 6-digit OTP for the registered email address.
+    Strictly delivers via email; code is not exposed in response body.
     """
-    record, code = AuthService.generate_password_reset_otp(db, req.email)
+    AuthService.generate_password_reset_otp(db, req.email)
     return ForgotPasswordResponse(
-        message="A 6-digit verification code has been generated for your account.",
+        message="A 6-digit verification code has been sent to your email address.",
         email=req.email,
-        expires_in_seconds=600,
-        dev_otp=code
+        expires_in_seconds=300
     )
 
 

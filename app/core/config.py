@@ -60,6 +60,23 @@ class Settings(BaseSettings):
         "image/webp"
     ]
 
+    # Email & SMTP Delivery Configuration
+    # Supports Gmail, Outlook, Yahoo, SendGrid, Resend, or custom SMTP
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "no-reply@kharcha.ai")
+    EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "KharchaAI Security")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+    SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
+
+    # OTP Security Parameters
+    OTP_EXPIRE_MINUTES: int = 5          # Exact 5 minutes validity
+    OTP_COOLDOWN_SECONDS: int = 60       # 60-second cooldown between resends
+    OTP_MAX_ATTEMPTS: int = 5            # Protection against brute-force (max 5 incorrect tries)
+    OTP_MAX_RESENDS_PER_HOUR: int = 5    # Resend rate-limiting
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

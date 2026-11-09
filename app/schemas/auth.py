@@ -74,12 +74,39 @@ class ForgotPasswordRequest(BaseModel):
 class ForgotPasswordResponse(BaseModel):
     """
     Response confirming OTP generation.
+    Strictly avoids exposing the raw verification code in the API response.
     """
     message: str
     email: str
-    expires_in_seconds: int = 600
-    # For convenient dev/testing mode on local/staging
-    dev_otp: Optional[str] = None
+    expires_in_seconds: int = 300
+
+
+class VerifyEmailRequest(BaseModel):
+    """
+    Schema for verifying user email with the 6-digit verification code.
+    """
+    email: EmailStr = Field(..., description="Email address to verify")
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+
+
+class ResendOtpRequest(BaseModel):
+    """
+    Schema for requesting a new verification code.
+    """
+    email: EmailStr = Field(..., description="Email address to resend OTP to")
+    purpose: str = Field(
+        "registration",
+        description="Purpose of OTP: 'registration' or 'password_reset'"
+    )
+
+
+class ResendOtpResponse(BaseModel):
+    """
+    Response acknowledging new OTP dispatch with cooldown info.
+    """
+    message: str
+    email: str
+    cooldown_seconds: int = 60
 
 
 class VerifyOtpRequest(BaseModel):
@@ -135,6 +162,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_active: bool
+    is_email_verified: bool = False
     preferred_currency: str = "PKR"
     created_at: datetime
 

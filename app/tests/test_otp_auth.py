@@ -1,8 +1,9 @@
-import pytest
-from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+from app.models.otp import EmailOTP
+from datetime import datetime, timedelta, timezone
 
 
-def test_forgot_password_flow(client: TestClient):
+def test_forgot_password_flow(client: TestClient, db_session: Session):
     # 1. Register a user
     reg_payload = {
         "email": "otptest@kharcha.ai",
@@ -12,14 +13,27 @@ def test_forgot_password_flow(client: TestClient):
     reg_res = client.post("/api/v1/auth/register", json=reg_payload)
     assert reg_res.status_code == 201
 
+    # Age registration OTP to avoid 60s cooldown
+    db_session.query(EmailOTP).filter(EmailOTP.email == "otptest@kharcha.ai").update({
+        "last_sent_at": datetime.now(timezone.utc) - timedelta(seconds=70)
+    })
+    db_session.commit()
+
     # 2. Request OTP for password reset
     forgot_payload = {"email": "otptest@kharcha.ai"}
     forgot_res = client.post("/api/v1/auth/forgot-password", json=forgot_payload)
     assert forgot_res.status_code == 200
     forgot_data = forgot_res.json()
-    assert "dev_otp" in forgot_data
-    otp_code = forgot_data["dev_otp"]
-    assert len(otp_code) == 6
+    assert forgot_data["expires_in_seconds"] == 300
+
+    otp_code = "654321"
+    otp_rec = db_session.query(EmailOTP).filter(
+        EmailOTP.email == "otptest@kharcha.ai",
+        EmailOTP.purpose == "password_reset"
+    ).first()
+    assert otp_rec is not None
+    otp_rec.otp_hash = EmailOTP.hash_otp(otp_code)
+    db_session.commit()
 
     # 3. Verify incorrect OTP
     bad_verify = client.post("/api/v1/auth/verify-otp", json={

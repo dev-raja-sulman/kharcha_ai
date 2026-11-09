@@ -57,3 +57,19 @@ def get_current_user(
         )
 
     return user
+
+
+def get_current_verified_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    FastAPI dependency ensuring the authenticated user has verified their email address.
+    Protected financial features (Expenses, Budgets, Analytics, Bills, Advisor) require verification.
+    """
+    if not current_user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="EMAIL_NOT_VERIFIED: Please verify your email address to access financial features.",
+        )
+    return current_user
+

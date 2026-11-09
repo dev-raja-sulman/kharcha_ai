@@ -5,6 +5,7 @@ import 'package:kharcha_ai/core/network/api_exception.dart';
 import 'package:kharcha_ai/screens/forgot_password_screen.dart';
 import 'package:kharcha_ai/screens/main_navigation_screen.dart';
 import 'package:kharcha_ai/screens/register_screen.dart';
+import 'package:kharcha_ai/screens/verify_email_screen.dart';
 import 'package:kharcha_ai/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -90,6 +91,27 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+
+      if (!user.isEmailVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please verify your email address to access your account.'),
+            backgroundColor: Color(0xFFF59E0B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerifyEmailScreen(
+              authService: widget.authService,
+              email: email,
+            ),
+          ),
+        );
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
