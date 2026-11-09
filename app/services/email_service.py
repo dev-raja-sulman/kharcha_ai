@@ -1,25 +1,38 @@
+import email.utils
 import logging
 import smtplib
+import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
+
+import httpx
+from fastapi import HTTPException, status
 
 from app.core.config import settings
 
 logger = logging.getLogger("kharcha.email")
 
 
+class EmailDeliveryError(Exception):
+    """Custom exception raised when email dispatch fails."""
+    pass
+
+
 class EmailService:
     """
-    Production-ready email dispatch service for KharchaAI.
-    Supports secure TLS/SSL SMTP delivery to Gmail, Outlook, Yahoo, and custom providers.
-    Provides responsive branded HTML templates and plain-text fallbacks.
+    Production-ready, multi-provider email dispatch engine for KharchaAI.
+    Supports:
+    1. Gmail SMTP & Standard SMTP (TLS/SSL) with RFC 5322 headers (SPF/DKIM compatible).
+    2. Resend API (HTTP REST) - Ideal for cloud deployments & ISP port-blocked networks.
+    3. SendGrid API (HTTP REST).
+    Guarantees strict delivery confirmation: never returns false success.
     """
 
     @staticmethod
-    def _mask_email(email: str) -> str:
+    def mask_email(email: str) -> str:
         """Masks an email for safe, audit-compliant logging (e.g., u***r@domain.com)."""
-        if "@" not in email:
+        if not email or "@" not in email:
             return "***"
         user_part, domain = email.split("@", 1)
         if len(user_part) <= 2:
@@ -36,15 +49,17 @@ class EmailService:
         purpose: str = "registration"
     ) -> bool:
         """
-        Sends a secure 6-digit verification code to the target email address.
+        Sends a real 6-digit verification code to the target email address.
+        Raises HTTPException if delivery fails or if no provider is configured.
+        Returns True ONLY when the email provider acknowledges acceptance.
         """
         normalized_email = to_email.strip().lower()
-        masked_email = cls._mask_email(normalized_email)
+        masked_email = cls.mask_email(normalized_email)
 
-        # Subject and contextual copy
+        # Contextual copy
         if purpose == "password_reset":
             subject = "KharchaAI - Password Reset Verification Code"
-            title = "Password Reset Request"
+            title = "Reset Your Password"
             lead_text = "We received a request to reset the password for your KharchaAI account. Please use the 6-digit verification code below to set a new password:"
             action_desc = "reset your password"
         else:
@@ -69,11 +84,11 @@ For security reasons, never share this verification code with anyone.
 
 If you did not request this code to {action_desc}, please ignore this email. Your account remains completely safe.
 
-KharchaAI Team
+KharchaAI Security Team
 Smart Financial Tracking & AI Wealth Management
 """
 
-        # High-Fidelity Responsive HTML Email Template (KharchaAI Dark Emerald Theme)
+        # High-Fidelity Responsive HTML Template (KharchaAI Dark Emerald Theme)
         html_body = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -147,45 +162,167 @@ Smart Financial Tracking & AI Wealth Management
 </body>
 </html>"""
 
-        # If SMTP_HOST is not configured, perform safe simulated delivery
-        if not settings.SMTP_HOST:
-            logger.info(
-                f"[EMAIL SERVICE] Simulated email dispatch to {masked_email} "
-                f"for purpose '{purpose}' (Valid for {expiry_minutes} min). SMTP_HOST not configured."
-            )
-            # In local dev environment, output helpful server hint without breaking
-            return True
+        # -------------------------------------------------------------------
+        # 1. Dispatch via Resend HTTP API (if configured)
+        # -------------------------------------------------------------------
+        if settings.RESEND_API_KEY:
+            try:
+                sender_email = settings.EMAILS_FROM_EMAIL or "onboarding@resend.dev"
+                resend_payload = {
+                    "from": f"{settings.EMAILS_FROM_NAME} <{sender_email}>",
+                    "to": [normalized_email],
+                    "subject": subject,
+                    "html": html_body,
+                    "text": text_body,
+                }
+                res = httpx.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json=resend_payload,
+                    timeout=12.0
+                )
+                if res.status_code in (200, 201):
+                    data = res.json()
+                    logger.info(f"[EMAIL SERVICE] Resend API delivered OTP to {masked_email} (id: {data.get('id')})")
+                    return True
+                else:
+                    error_detail = res.text
+                    logger.error(f"[EMAIL SERVICE] Resend API error ({res.status_code}): {error_detail}")
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"Email delivery via Resend failed: {error_detail}"
+                    )
+            except httpx.RequestError as exc:
+                logger.error(f"[EMAIL SERVICE] Resend network error: {exc}")
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Email delivery network error: {exc}"
+                )
 
-        # Build MIME Message
+        # -------------------------------------------------------------------
+        # 2. Dispatch via SendGrid API (if configured)
+        # -------------------------------------------------------------------
+        if settings.SENDGRID_API_KEY:
+            try:
+                sender_email = settings.EMAILS_FROM_EMAIL or "no-reply@kharcha.ai"
+                sg_payload = {
+                    "personalizations": [{"to": [{"email": normalized_email}]}],
+                    "from": {"email": sender_email, "name": settings.EMAILS_FROM_NAME},
+                    "subject": subject,
+                    "content": [
+                        {"type": "text/plain", "value": text_body},
+                        {"type": "text/html", "value": html_body}
+                    ]
+                }
+                res = httpx.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json=sg_payload,
+                    timeout=12.0
+                )
+                if res.status_code in (200, 202):
+                    logger.info(f"[EMAIL SERVICE] SendGrid delivered OTP to {masked_email}")
+                    return True
+                else:
+                    logger.error(f"[EMAIL SERVICE] SendGrid error ({res.status_code}): {res.text}")
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"Email delivery via SendGrid failed: {res.text}"
+                    )
+            except httpx.RequestError as exc:
+                logger.error(f"[EMAIL SERVICE] SendGrid network error: {exc}")
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Email delivery network error: {exc}"
+                )
+
+        # -------------------------------------------------------------------
+        # 3. Dispatch via SMTP (Gmail, Outlook, Yahoo, or Custom SMTP)
+        # -------------------------------------------------------------------
+        smtp_user = settings.SMTP_USER.strip()
+        smtp_pwd = settings.SMTP_PASSWORD.strip()
+        smtp_host = settings.SMTP_HOST.strip()
+
+        # If SMTP is NOT configured, do NOT show a false success
+        if not smtp_user or not smtp_pwd:
+            logger.error(
+                f"[EMAIL SERVICE] Email delivery failed: SMTP credentials are not configured in .env. "
+                f"Attempted to send to {masked_email}."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "EMAIL_NOT_CONFIGURED: Mail delivery credentials are not set up. "
+                    "Please configure SMTP_USER and SMTP_PASSWORD in your .env file."
+                )
+            )
+
+        # Determine sending From address
+        from_address = settings.EMAILS_FROM_EMAIL.strip() if settings.EMAILS_FROM_EMAIL else smtp_user
+
+        # Build RFC 5322 compliant message with anti-spam headers
+        msg_id_domain = smtp_user.split("@")[-1] if "@" in smtp_user else "kharcha.ai"
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
-        message["From"] = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>"
+        message["From"] = f"{settings.EMAILS_FROM_NAME} <{from_address}>"
         message["To"] = normalized_email
+        message["Reply-To"] = from_address
+        message["Date"] = email.utils.formatdate(localtime=True)
+        message["Message-ID"] = f"<{uuid.uuid4()}@{msg_id_domain}>"
+        message["X-Mailer"] = "KharchaAI-Security-Engine/1.0"
+        message["Auto-Submitted"] = "auto-generated"
+        message["X-Auto-Response-Suppress"] = "All"
+        message["Precedence"] = "bulk"
 
         part1 = MIMEText(text_body, "plain", "utf-8")
         part2 = MIMEText(html_body, "html", "utf-8")
         message.attach(part1)
         message.attach(part2)
 
-        # Dispatch via configured SMTP server
         try:
             if settings.SMTP_SSL:
-                server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+                server = smtplib.SMTP_SSL(smtp_host, settings.SMTP_PORT, timeout=15)
             else:
-                server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+                server = smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=15)
+                server.ehlo()
                 if settings.SMTP_TLS:
                     server.starttls()
+                    server.ehlo()
 
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            # Authenticate with SMTP server
+            server.login(smtp_user, smtp_pwd)
 
+            # Send mail
             server.send_message(message)
             server.quit()
-            logger.info(f"[EMAIL SERVICE] Verification email successfully delivered to {masked_email}")
+
+            logger.info(f"[EMAIL SERVICE] Real OTP email successfully delivered to {masked_email} via SMTP ({smtp_host})")
             return True
-        except Exception as e:
-            logger.warning(
-                f"[EMAIL SERVICE] Live SMTP delivery to {masked_email} failed: {e}. "
-                f"Proceeding with transaction to prevent user lockout."
+
+        except smtplib.SMTPAuthenticationError as auth_err:
+            logger.error(f"[EMAIL SERVICE] SMTP Authentication Failed for {smtp_user}: {auth_err}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "EMAIL_AUTH_FAILED: Gmail SMTP authentication failed. "
+                    "Please verify your 16-character App Password."
+                )
             )
-            return False
+        except smtplib.SMTPConnectError as conn_err:
+            logger.error(f"[EMAIL SERVICE] SMTP Connection Failed to {smtp_host}:{settings.SMTP_PORT}: {conn_err}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"EMAIL_CONNECT_FAILED: Could not connect to mail server {smtp_host}:{settings.SMTP_PORT}."
+            )
+        except (smtplib.SMTPException, TimeoutError, OSError) as exc:
+            logger.error(f"[EMAIL SERVICE] SMTP dispatch error to {masked_email}: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"EMAIL_DELIVERY_FAILED: Could not deliver verification email ({str(exc)})."
+            )

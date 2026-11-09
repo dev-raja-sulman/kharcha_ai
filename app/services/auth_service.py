@@ -96,15 +96,15 @@ class AuthService:
             created_at=now_utc
         )
         db.add(otp_record)
-        db.commit()
 
-        # Send verification email via EmailService
+        # Send verification email via EmailService before committing
         EmailService.send_otp_email(
             to_email=normalized_email,
             otp_code=otp_code,
             purpose="registration"
         )
 
+        db.commit()
         return user
 
     @staticmethod
@@ -272,14 +272,15 @@ class AuthService:
             created_at=now_utc
         )
         db.add(new_otp)
-        db.commit()
 
-        # Send email
+        # Send email before committing
         EmailService.send_otp_email(
             to_email=normalized_email,
             otp_code=otp_code,
             purpose=purpose
         )
+
+        db.commit()
 
     @staticmethod
     def generate_password_reset_otp(db: Session, email: str) -> Tuple[EmailOTP, str]:
@@ -338,15 +339,16 @@ class AuthService:
             created_at=now_utc
         )
         db.add(otp_record)
-        db.commit()
-        db.refresh(otp_record)
 
-        # Send password reset email
+        # Send password reset email before committing
         EmailService.send_otp_email(
             to_email=normalized_email,
             otp_code=code,
             purpose="password_reset"
         )
+
+        db.commit()
+        db.refresh(otp_record)
 
         return otp_record, code
 

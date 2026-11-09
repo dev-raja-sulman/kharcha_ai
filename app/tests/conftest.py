@@ -49,3 +49,14 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_email_dispatch(monkeypatch):
+    """
+    Mocks real external SMTP dispatch during automated test runs
+    so unit tests do not depend on external mail server availability.
+    """
+    from app.services.email_service import EmailService
+    monkeypatch.setattr(EmailService, "send_otp_email", lambda *args, **kwargs: True)
+

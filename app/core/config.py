@@ -62,14 +62,16 @@ class Settings(BaseSettings):
 
     # Email & SMTP Delivery Configuration
     # Supports Gmail, Outlook, Yahoo, SendGrid, Resend, or custom SMTP
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "no-reply@kharcha.ai")
+    EMAILS_FROM_EMAIL: str = os.getenv("EMAILS_FROM_EMAIL", "")
     EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "KharchaAI Security")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
     SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
 
     # OTP Security Parameters
     OTP_EXPIRE_MINUTES: int = 5          # Exact 5 minutes validity
